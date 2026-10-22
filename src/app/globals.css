@@ -18,6 +18,14 @@
   --font-serif: Georgia, "Times New Roman", serif;
 }
 
+@utility scrollbar-none {
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 html {
   scroll-behavior: smooth;
 }

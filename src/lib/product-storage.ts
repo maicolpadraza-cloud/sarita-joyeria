@@ -4,6 +4,7 @@ import {
   type Product,
   type ProductCategory,
   type ProductMaterial,
+  type MasculineAccessoryType,
 } from "@/lib/products";
 
 const PRODUCTS_STORAGE_KEY = "sarita-products-v1";
@@ -15,6 +16,12 @@ const validMaterials: ProductMaterial[] = [
   "Acero",
   "Titanio",
   "Artesanal",
+];
+const validAccessoryTypes: MasculineAccessoryType[] = [
+  "Cadenas",
+  "Pulseras",
+  "Anillos",
+  "Billeteras",
 ];
 const legacyCategoryMap: Record<string, ProductCategory> = {
   "Aritos & Argollas": "Aritos",
@@ -45,6 +52,8 @@ function isProduct(value: unknown): value is Product {
     typeof product.name === "string" &&
     isProductCategory(product.category) &&
     isProductMaterial(product.material) &&
+    (product.accessoryType === undefined ||
+      validAccessoryTypes.some((type) => type === product.accessoryType)) &&
     (product.closureType === undefined ||
       product.closureType === "Mariposa" ||
       product.closureType === "Tapa Plana" ||

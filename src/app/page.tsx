@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Heart } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import SplashScreen from "@/components/SplashScreen";
 import {
@@ -11,6 +11,7 @@ import {
   materialBadgeLabels,
   materialsByCategory,
   products,
+  type MasculineAccessoryType,
   type Product,
   type ProductMaterial,
 } from "@/lib/products";
@@ -25,6 +26,17 @@ const bolivianCurrency = new Intl.NumberFormat("es-BO", {
   maximumFractionDigits: 2,
 });
 
+const masculineAccessoryFilters: {
+  label: "Todas" | MasculineAccessoryType;
+  value: MasculineAccessoryType | null;
+}[] = [
+  { label: "Todas", value: null },
+  { label: "Cadenas", value: "Cadenas" },
+  { label: "Pulseras", value: "Pulseras" },
+  { label: "Anillos", value: "Anillos" },
+  { label: "Billeteras", value: "Billeteras" },
+];
+
 export default function Home() {
   const [showSplash, setShowSplash] = useState(true);
   const [catalogProducts, setCatalogProducts] = useState<Product[]>(products);
@@ -33,6 +45,8 @@ export default function Home() {
     useState<(typeof categories)[number]>("Todos");
   const [selectedMaterial, setSelectedMaterial] =
     useState<ProductMaterial | null>(null);
+  const [selectedAccessoryType, setSelectedAccessoryType] =
+    useState<MasculineAccessoryType | null>(null);
   useEffect(() => {
     const refreshProducts = () => {
       try {
@@ -68,6 +82,9 @@ export default function Home() {
     (product) =>
       (selectedCategory === "Todos" ||
         product.category === selectedCategory) &&
+      (selectedCategory !== "Varones" ||
+        selectedAccessoryType === null ||
+        product.accessoryType === selectedAccessoryType) &&
       (selectedMaterial === null || product.material === selectedMaterial),
   );
 
@@ -81,13 +98,9 @@ export default function Home() {
         initial={{ opacity: 0 }}
         animate={{ opacity: showSplash ? 0 : 1 }}
         transition={{ duration: 0.7, ease: "easeOut" }}
-        className="min-h-screen bg-cream text-darkBrown"
+        className="m-0 min-h-screen bg-cream p-0 text-darkBrown"
       >
-        <div className="bg-darkBrown px-4 py-2 text-center text-[10px] font-medium uppercase tracking-[0.2em] text-cream sm:text-xs">
-          UN DETALLE ESPECIAL PARA CADA MOMENTO · ENVÍOS A TODA BOLIVIA
-        </div>
-
-        <header className="border-b border-darkBrown/10 bg-cream">
+        <header className="m-0 border-b border-darkBrown/10 bg-cream">
           <div className="mx-auto flex max-w-7xl justify-center px-5 py-5 sm:px-8">
             <a
               href="#inicio"
@@ -159,14 +172,14 @@ export default function Home() {
               </p>
               <h2 className="font-serif text-3xl sm:text-4xl">Nuestra colección</h2>
             </div>
-            <p className="text-xs text-darkBrown/60">
+            <p className="text-xs font-light uppercase tracking-wider text-[#8C6B58]/80">
               {filteredProducts.length}{" "}
               {filteredProducts.length === 1 ? "producto" : "productos"}
             </p>
           </div>
 
           <div
-            className="-mx-5 mb-5 flex gap-2 overflow-x-auto px-5 pb-2 sm:mx-0 sm:flex-wrap sm:px-0"
+            className="scrollbar-none -mx-5 flex scroll-smooth gap-6 overflow-x-auto border-b border-[#2C2623]/10 px-5 pb-3 sm:mx-0 sm:px-0"
             aria-label="Filtrar por categoría"
           >
             {categories.map((category) => (
@@ -183,11 +196,12 @@ export default function Home() {
                     setSelectedMaterial(null);
                   }
                   setSelectedCategory(category);
+                  setSelectedAccessoryType(null);
                 }}
-                className={`shrink-0 rounded-full border px-4 py-2.5 text-[11px] transition-colors ${
-                selectedCategory === category
-                  ? "border-darkBrown bg-darkBrown text-cream"
-                  : "border-darkBrown/15 bg-transparent text-darkBrown/70 hover:border-warmBrown hover:text-warmBrown"
+                className={`shrink-0 whitespace-nowrap border-b-2 pb-3 text-sm font-medium tracking-wide transition-colors duration-200 ${
+                  selectedCategory === category
+                    ? "-mb-[13px] border-[#C5A059] font-semibold text-[#2C2623]"
+                    : "border-transparent text-[#8C6B58]/70 hover:text-[#2C2623]"
                 }`}
               >
                 {category}
@@ -195,8 +209,31 @@ export default function Home() {
             ))}
           </div>
 
+          {selectedCategory === "Varones" && (
+            <div
+              className="mt-4 flex flex-wrap gap-2"
+              aria-label="Filtrar accesorios masculinos por tipo"
+            >
+              {masculineAccessoryFilters.map((filter) => (
+                <button
+                  key={filter.label}
+                  type="button"
+                  aria-pressed={selectedAccessoryType === filter.value}
+                  onClick={() => setSelectedAccessoryType(filter.value)}
+                  className={`rounded-full border px-4 py-1.5 text-xs font-medium tracking-wide transition-all ${
+                    selectedAccessoryType === filter.value
+                      ? "border-[#2C2623] bg-[#2C2623] text-[#FDF8F5] shadow-sm"
+                      : "border-[#FADCD9]/30 bg-[#FADCD9]/20 text-[#8C6B58] hover:bg-[#FADCD9]/50"
+                  }`}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+          )}
+
           <div
-            className="-mx-5 mb-8 flex gap-2 overflow-x-auto px-5 pb-2 sm:mx-0 sm:flex-wrap sm:px-0"
+            className="mt-4 mb-8 flex flex-wrap gap-2"
             aria-label="Filtrar por material o colección"
           >
             {visibleMaterialFilters.map((filter) => (
@@ -205,10 +242,10 @@ export default function Home() {
                 type="button"
                 aria-pressed={selectedMaterial === filter.value}
                 onClick={() => setSelectedMaterial(filter.value)}
-                className={`shrink-0 rounded-full px-3.5 py-2 text-[10px] transition-colors ${
-                selectedMaterial === filter.value
-                  ? "bg-rose text-darkBrown"
-                  : "bg-darkBrown/[0.04] text-darkBrown/65 hover:bg-rose/60"
+                className={`rounded-full px-4 py-1.5 text-xs font-medium tracking-wide transition-all ${
+                  selectedMaterial === filter.value
+                    ? "bg-[#2C2623] text-[#FDF8F5] shadow-sm"
+                    : "border border-[#FADCD9]/30 bg-[#FADCD9]/20 text-[#8C6B58] hover:bg-[#FADCD9]/50"
                 }`}
               >
                 {filter.label}
@@ -229,7 +266,7 @@ export default function Home() {
                     role="img"
                     aria-label={product.name}
                   />
-                  <span className="absolute left-3 top-3 rounded-full bg-white/80 px-3 py-1 text-xs font-medium tracking-wider text-[#8C6B58] backdrop-blur-md">
+                  <span className="absolute left-3 top-3 rounded-full border border-white/50 bg-white/80 px-3 py-1 text-[11px] font-semibold tracking-wider text-[#8C6B58] shadow-xs backdrop-blur-md">
                     {materialBadgeLabels[product.material]}
                   </span>
                   {!product.inStock && (
@@ -237,34 +274,27 @@ export default function Home() {
                       Agotado
                     </span>
                   )}
-                  <button
-                    type="button"
-                    aria-label={`Guardar ${product.name} en favoritos`}
-                    className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/80 backdrop-blur-md transition-colors hover:bg-white hover:text-warmBrown"
-                  >
-                    <Heart size={16} strokeWidth={1.5} />
-                  </button>
                 </div>
-                <div className="flex items-start justify-between gap-3 px-1 pt-4">
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-widest text-[#8C6B58]">
-                      {product.category} · {materialLabels[product.material]}
-                    </p>
-                    <h3 className="mt-1 text-sm font-medium text-[#2C2623]">
+                <div className="px-1 pt-4">
+                  <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-[#8C6B58]">
+                    {product.category}
+                    {product.accessoryType && ` · ${product.accessoryType}`}
+                    {" · "}
+                    {materialLabels[product.material]}
+                  </p>
+                  <div className="mt-1 flex items-start justify-between gap-2">
+                    <h3 className="text-sm font-medium leading-snug text-[#2C2623]">
                       {product.name}
                     </h3>
-                    <p className="mt-1 text-[10px] leading-5 text-darkBrown/55">
-                      {product.description}
+                    <p className="shrink-0 whitespace-nowrap text-base font-semibold text-[#C5A059]">
+                      {bolivianCurrency.format(product.price)}
                     </p>
-                    {product.closureType && (
-                      <p className="mt-1 text-[10px] text-darkBrown/55">
-                        Cierre: {product.closureType}
-                      </p>
-                    )}
                   </div>
-                  <p className="shrink-0 pt-4 text-base font-semibold text-[#C5A059]">
-                    {bolivianCurrency.format(product.price)}
-                  </p>
+                  {product.closureType && (
+                    <p className="mt-1 block text-xs font-normal text-[#8C6B58]/80">
+                      Cierre: {product.closureType}
+                    </p>
+                  )}
                 </div>
               </article>
             ))}

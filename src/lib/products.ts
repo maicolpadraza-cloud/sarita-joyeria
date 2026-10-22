@@ -21,12 +21,20 @@ export type ProductCategory =
   | "Relojes"
   | "Carteras"
   | "Billeteras"
-  | "Varones";
+  | "Varones"
+  | "Tobilleras";
+
+export type MasculineAccessoryType =
+  | "Cadenas"
+  | "Pulseras"
+  | "Anillos"
+  | "Billeteras";
 
 export interface Product {
   id: string;
   name: string;
   category: ProductCategory;
+  accessoryType?: MasculineAccessoryType;
   material: ProductMaterial;
   closureType?: ClosureType;
   price: number;
@@ -50,6 +58,7 @@ export const categories = [
   "Carteras",
   "Billeteras",
   "Varones",
+  "Tobilleras",
 ] as const;
 
 export const materialsByCategory: Record<ProductCategory, ProductMaterial[]> = {
@@ -65,7 +74,8 @@ export const materialsByCategory: Record<ProductCategory, ProductMaterial[]> = {
   Relojes: ["Acero", "Xuping"],
   Carteras: [],
   Billeteras: [],
-  Varones: ["Acero"],
+  Varones: ["Acero", "Artesanal"],
+  Tobilleras: ["Xuping", "Acero"],
 };
 
 export const categoryMaterialOptions: Record<
@@ -85,6 +95,7 @@ export const categoryMaterialOptions: Record<
   Carteras: ["Artesanal"],
   Billeteras: ["Artesanal"],
   Varones: ["Acero", "Artesanal"],
+  Tobilleras: ["Xuping", "Acero"],
 };
 
 export const materialFilters: {
@@ -215,6 +226,7 @@ export const products: Product[] = [
     id: "cadena-acero-hombre",
     name: "Cadenita de Acero para Hombre",
     category: "Varones",
+    accessoryType: "Cadenas",
     material: "Acero",
     price: 185,
     image:
@@ -226,6 +238,7 @@ export const products: Product[] = [
     id: "billetera-masculina-cuero",
     name: "Billetera Masculina de Cuero",
     category: "Varones",
+    accessoryType: "Billeteras",
     material: "Artesanal",
     price: 390,
     image:
@@ -237,11 +250,47 @@ export const products: Product[] = [
     id: "pulsera-varon-acero",
     name: "Pulsera de Acero para Varón",
     category: "Varones",
+    accessoryType: "Pulseras",
     material: "Acero",
     price: 210,
     image:
       "https://images.unsplash.com/photo-1573408301185-9146fe634ad0?auto=format&fit=crop&w=900&q=85",
     description: "Pulsera masculina de acero inoxidable con diseño sobrio.",
+    inStock: true,
+  },
+  {
+    id: "anillo-varon-acero",
+    name: "Anillo de Acero para Varón",
+    category: "Varones",
+    accessoryType: "Anillos",
+    material: "Acero",
+    price: 160,
+    image:
+      "https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=900&q=85",
+    description: "Anillo masculino de acero inoxidable con acabado pulido.",
+    inStock: true,
+  },
+  {
+    id: "tobillera-xuping-dorada",
+    name: "Tobillera Xuping Dorada",
+    category: "Tobilleras",
+    material: "Xuping",
+    price: 135,
+    image:
+      "https://images.unsplash.com/photo-1611652022419-a9419f74343d?auto=format&fit=crop&w=900&q=85",
+    description:
+      "Tobillera delicada con baño de oro antialérgico para lucir a diario.",
+    inStock: true,
+  },
+  {
+    id: "tobillera-acero-inoxidable",
+    name: "Tobillera de Acero Inoxidable",
+    category: "Tobilleras",
+    material: "Acero",
+    price: 120,
+    image:
+      "https://images.unsplash.com/photo-1573408301185-9146fe634ad0?auto=format&fit=crop&w=900&q=85",
+    description: "Tobillera de acero inoxidable, resistente y versátil.",
     inStock: true,
   },
 ];

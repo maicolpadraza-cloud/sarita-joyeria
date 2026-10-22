@@ -24,6 +24,7 @@ import {
   materialLabels,
   products as initialProducts,
   type ClosureType,
+  type MasculineAccessoryType,
   type Product,
   type ProductCategory,
 } from "@/lib/products";
@@ -37,6 +38,12 @@ const productCategories = categories.filter(
   (category): category is ProductCategory => category !== "Todos",
 );
 const closureTypes: ClosureType[] = ["Mariposa", "Tapa Plana", "Argolla"];
+const masculineAccessoryTypes: MasculineAccessoryType[] = [
+  "Cadenas",
+  "Pulseras",
+  "Anillos",
+  "Billeteras",
+];
 const maxImageSize = 512 * 1024;
 
 type ProductDraft = Omit<Product, "id">;
@@ -123,6 +130,10 @@ export default function AdminPage() {
     setDraft((current) => ({
       ...current,
       category,
+      accessoryType:
+        category === "Varones"
+          ? current.accessoryType ?? "Cadenas"
+          : undefined,
       material: nextMaterials.includes(current.material)
         ? current.material
         : nextMaterials[0],
@@ -356,6 +367,32 @@ export default function AdminPage() {
                   </select>
                 </label>
               </div>
+
+              {draft.category === "Varones" && (
+                <label className="block text-xs font-medium">
+                  Tipo de accesorio
+                  <select
+                    className={inputClassName}
+                    value={draft.accessoryType ?? ""}
+                    onChange={(event) => {
+                      const accessoryType = masculineAccessoryTypes.find(
+                        (item) => item === event.target.value,
+                      );
+                      if (accessoryType) setDraft({ ...draft, accessoryType });
+                    }}
+                    required
+                  >
+                    <option value="" disabled>
+                      Selecciona un tipo
+                    </option>
+                    {masculineAccessoryTypes.map((accessoryType) => (
+                      <option key={accessoryType} value={accessoryType}>
+                        {accessoryType}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
 
               {(draft.category === "Aritos" ||
                 draft.category === "Argollas") && (
