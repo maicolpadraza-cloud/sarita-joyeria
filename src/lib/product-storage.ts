@@ -16,6 +16,7 @@ const validMaterials: ProductMaterial[] = [
   "Acero",
   "Titanio",
   "Artesanal",
+  "Cuero sintético",
 ];
 const validAccessoryTypes: MasculineAccessoryType[] = [
   "Cadenas",

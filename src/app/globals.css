@@ -18,6 +18,38 @@
   --font-serif: Georgia, "Times New Roman", serif;
 }
 
+@utility font-editorial {
+  font-family: var(--font-playfair-display), Georgia, "Times New Roman", serif;
+}
+
+@utility font-boutique {
+  font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
+}
+
+.celestial-isotype {
+  animation: celestial-glow 4s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes celestial-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 2px rgb(212 175 55 / 25%));
+    transform: scale(1);
+  }
+
+  50% {
+    filter: drop-shadow(0 0 6px rgb(212 175 55 / 65%));
+    transform: scale(1.06);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .celestial-isotype {
+    animation: none;
+  }
+}
+
 @utility scrollbar-none {
   scrollbar-width: none;
 

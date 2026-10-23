@@ -1,7 +1,6 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import SplashScreen from "@/components/SplashScreen";
 import {
@@ -100,15 +99,45 @@ export default function Home() {
         transition={{ duration: 0.7, ease: "easeOut" }}
         className="m-0 min-h-screen bg-cream p-0 text-darkBrown"
       >
-        <header className="m-0 border-b border-darkBrown/10 bg-cream">
+        <header className="m-0 border-b border-darkBrown/10 bg-[#FAF7F2]">
           <div className="mx-auto flex max-w-7xl justify-center px-5 py-5 sm:px-8">
             <a
               href="#inicio"
-              className="text-center font-serif text-xl leading-none tracking-[0.08em] sm:text-2xl"
+              className="text-center font-editorial text-xl font-semibold leading-none tracking-[0.08em] sm:text-2xl"
               aria-label="Sarita Joyería y Accesorios, inicio"
             >
-              SARITA
-              <span className="mt-1 block text-[9px] font-sans tracking-[0.28em] text-warmBrown sm:text-[10px]">
+              <svg
+                aria-hidden="true"
+                className="celestial-isotype mx-auto mb-1 h-8 w-8"
+                viewBox="0 0 40 40"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <g
+                  stroke="#D4AF37"
+                  strokeLinecap="round"
+                  strokeWidth="1.2"
+                >
+                  <path d="M13 4.5v3" />
+                  <path d="m5.7 8.5 2.1 2.1" />
+                  <path d="M3 16h3" />
+                  <path d="m5.7 23.5 2.1-2.1" />
+                </g>
+                <path
+                  d="M13 9.5c.9 4.1 2.4 5.6 6.5 6.5-4.1.9-5.6 2.4-6.5 6.5-.9-4.1-2.4-5.6-6.5-6.5 4.1-.9 5.6-2.4 6.5-6.5Z"
+                  fill="#D4AF37"
+                />
+                <path
+                  d="M27.1 8.1a12 12 0 1 0 5.8 21.5 10 10 0 0 1-5.8-21.5Z"
+                  fill="#D4AF37"
+                />
+                <path
+                  d="m32.5 5 .6 2.1 2.1.6-2.1.6-.6 2.1-.6-2.1-2.1-.6 2.1-.6.6-2.1Z"
+                  fill="#D4AF37"
+                />
+              </svg>
+              <span className="block">SARITA</span>
+              <span className="mt-1 block font-boutique text-[9px] tracking-[0.28em] text-warmBrown sm:text-[10px]">
                 JOYERÍA Y ACCESORIOS
               </span>
             </a>
@@ -117,9 +146,9 @@ export default function Home() {
 
         <section
           id="inicio"
-          className="relative isolate overflow-hidden bg-[#f4e9e2]"
+          className="relative isolate overflow-hidden bg-[#F8F5EE]"
         >
-          <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(253,248,245,0.96)_0%,rgba(253,248,245,0.84)_45%,rgba(253,248,245,0.08)_100%)]" />
+          <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(250,247,242,0.98)_0%,rgba(250,247,242,0.94)_30%,rgba(248,245,238,0.72)_55%,rgba(248,245,238,0)_100%)]" />
           <div
             className="absolute inset-0 -z-20 bg-cover bg-[center_42%]"
             style={{
@@ -131,13 +160,13 @@ export default function Home() {
           />
           <div className="mx-auto flex min-h-[510px] max-w-7xl items-center px-6 py-20 sm:min-h-[590px] sm:px-10 lg:min-h-[650px]">
             <div className="max-w-xl">
-              <p className="mb-5 text-[10px] font-medium uppercase tracking-[0.28em] text-warmBrown sm:text-xs">
+              <p className="mb-5 font-boutique text-[10px] font-medium uppercase tracking-[0.22em] text-[#8C7262] sm:text-xs">
                 Pequeños detalles, grandes momentos
               </p>
-              <h1 className="font-serif text-5xl leading-[1.05] tracking-tight sm:text-6xl lg:text-7xl">
+              <h1 className="font-editorial text-5xl leading-[1.05] tracking-tight sm:text-6xl lg:text-7xl">
                 Brilla con
                 <br />
-                <span className="italic text-warmBrown">tu propia luz.</span>
+                <span className="italic text-[#C5A059]">tu propia luz.</span>
               </h1>
               <p className="mt-6 max-w-md text-sm leading-7 text-darkBrown/75 sm:text-base">
                 Joyas y accesorios elegidos con cariño para acompañarte todos
@@ -145,9 +174,9 @@ export default function Home() {
               </p>
               <a
                 href="#coleccion"
-                className="mt-9 inline-flex items-center gap-3 bg-darkBrown px-7 py-4 text-[10px] font-medium uppercase tracking-[0.18em] text-cream transition-colors hover:bg-warmBrown"
+                className="mt-9 inline-flex items-center border border-[#C5A059] bg-[#221E1B] px-7 py-4 font-boutique text-[10px] font-medium uppercase tracking-[0.15em] text-[#FAF7F2] transition-colors duration-300 hover:bg-[#C5A059] hover:text-[#221E1B]"
               >
-                Descubre la colección <ArrowRight size={15} />
+                DESCUBRE NUESTRA COLECCIÓN →
               </a>
             </div>
           </div>

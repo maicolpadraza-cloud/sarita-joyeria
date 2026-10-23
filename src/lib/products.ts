@@ -4,7 +4,8 @@ export type ProductMaterial =
   | "Folleado"
   | "Acero"
   | "Titanio"
-  | "Artesanal";
+  | "Artesanal"
+  | "Cuero sintético";
 
 export type ClosureType = "Mariposa" | "Tapa Plana" | "Argolla";
 
@@ -92,8 +93,8 @@ export const categoryMaterialOptions: Record<
   Titanio: materialsByCategory.Titanio,
   Conjuntos: [...materialsByCategory.Conjuntos, "Magold"],
   Relojes: [...materialsByCategory.Relojes, "Magold"],
-  Carteras: ["Artesanal"],
-  Billeteras: ["Artesanal"],
+  Carteras: ["Cuero sintético"],
+  Billeteras: ["Cuero sintético"],
   Varones: ["Acero", "Artesanal"],
   Tobilleras: ["Xuping", "Acero"],
 };
@@ -118,6 +119,7 @@ export const materialLabels: Record<ProductMaterial, string> = {
   Acero: "Acero inoxidable",
   Titanio: "Titanio",
   Artesanal: "Línea artesanal",
+  "Cuero sintético": "Cuero sintético",
 };
 
 export const materialBadgeLabels: Record<ProductMaterial, string> = {
@@ -127,6 +129,7 @@ export const materialBadgeLabels: Record<ProductMaterial, string> = {
   Acero: "Acero",
   Titanio: "Titanio",
   Artesanal: "Artesanal",
+  "Cuero sintético": "Cuero sintético",
 };
 
 export const products: Product[] = [
