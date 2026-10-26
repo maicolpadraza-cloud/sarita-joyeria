@@ -16,6 +16,24 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-serif: Georgia, "Times New Roman", serif;
+  --animate-moon-reveal: moon-reveal 900ms ease-out both;
+}
+
+@keyframes moon-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.splash-isotype {
+  filter: brightness(0) saturate(100%) invert(25%) sepia(14%) saturate(1050%)
+    hue-rotate(342deg) brightness(93%) contrast(87%);
 }
 
 @utility font-editorial {
@@ -29,6 +47,40 @@
 .celestial-isotype {
   animation: celestial-glow 4s ease-in-out infinite;
   transform-origin: center;
+}
+
+.hero-blush-photo {
+  background-position: 54% 48%;
+}
+
+.hero-blush-gradient {
+  background: linear-gradient(
+    to right,
+    #f1d5d5 0%,
+    #f1d5d5 30%,
+    rgb(241 213 213 / 92%) 42%,
+    rgb(241 213 213 / 68%) 53%,
+    rgb(241 213 213 / 32%) 64%,
+    transparent 76%
+  );
+}
+
+@media (max-width: 767px) {
+  .hero-blush-photo {
+    background-position: 58% center;
+  }
+
+  .hero-blush-gradient {
+    background: linear-gradient(
+      to bottom,
+      #f1d5d5 0%,
+      #f1d5d5 43%,
+      rgb(241 213 213 / 92%) 55%,
+      rgb(241 213 213 / 68%) 67%,
+      rgb(241 213 213 / 28%) 78%,
+      transparent 88%
+    );
+  }
 }
 
 @keyframes celestial-glow {

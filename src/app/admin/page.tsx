@@ -27,12 +27,21 @@ import {
   type MasculineAccessoryType,
   type Product,
   type ProductCategory,
+  type ProductMaterial,
+  type ProductSubcategory,
 } from "@/lib/products";
 import {
   PRODUCTS_UPDATED_EVENT,
   readProducts,
   writeProducts,
 } from "@/lib/product-storage";
+import {
+  fetchProducts,
+  ProductsApiError,
+  removeProduct as removeProductApi,
+  saveProduct,
+  updateProductApi,
+} from "@/lib/products-api";
 
 const productCategories = categories.filter(
   (category): category is ProductCategory => category !== "Todos",
@@ -52,6 +61,7 @@ function createEmptyDraft(): ProductDraft {
   return {
     name: "",
     category: "Aritos",
+    subcategory: undefined,
     material: "Xuping",
     closureType: undefined,
     price: 0,
@@ -73,20 +83,53 @@ export default function AdminPage() {
   const [isReady, setIsReady] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const ignoreNextProductUpdateEvent = useRef(false);
 
   useEffect(() => {
-    const refreshProducts = () => {
-      try {
-        setItems(readProducts());
-        setError("");
-      } catch (loadError) {
-        setError(
-          loadError instanceof Error
-            ? loadError.message
-            : "No se pudieron cargar los productos guardados.",
-        );
+    let isMounted = true;
+    let requestVersion = 0;
+
+    const refreshProducts = async (event?: Event) => {
+      if (
+        event?.type === PRODUCTS_UPDATED_EVENT &&
+        ignoreNextProductUpdateEvent.current
+      ) {
+        ignoreNextProductUpdateEvent.current = false;
+        return;
       }
-      setIsReady(true);
+
+      const currentRequest = ++requestVersion;
+
+      try {
+        const remoteProducts = await fetchProducts();
+        if (!isMounted || currentRequest !== requestVersion) return;
+
+        setItems(remoteProducts);
+        setError("");
+      } catch (apiError) {
+        if (!isMounted || currentRequest !== requestVersion) return;
+
+        const apiMessage =
+          apiError instanceof Error
+            ? apiError.message
+            : "No se pudo consultar el catálogo en MySQL.";
+        try {
+          setItems(readProducts());
+          setError(
+            `${apiMessage} Se muestran los productos guardados en este dispositivo.`,
+          );
+        } catch (storageError) {
+          const storageMessage =
+            storageError instanceof Error
+              ? storageError.message
+              : "No se pudieron cargar los productos guardados.";
+          setError(`${apiMessage} ${storageMessage}`);
+        }
+      } finally {
+        if (isMounted && currentRequest === requestVersion) {
+          setIsReady(true);
+        }
+      }
     };
 
     refreshProducts();
@@ -94,12 +137,69 @@ export default function AdminPage() {
     window.addEventListener("storage", refreshProducts);
 
     return () => {
+      isMounted = false;
+      requestVersion++;
       window.removeEventListener(PRODUCTS_UPDATED_EVENT, refreshProducts);
       window.removeEventListener("storage", refreshProducts);
     };
   }, []);
 
-  const availableMaterials = categoryMaterialOptions[draft.category];
+  async function refreshProductsAfterWrite(
+    fallbackProducts: Product[],
+  ): Promise<string | null> {
+    let warning: string | null = null;
+
+    try {
+      const remoteProducts = await fetchProducts();
+      setItems(remoteProducts);
+      try {
+        writeProducts(remoteProducts, { dispatchEvent: false });
+      } catch (storageError) {
+        const message =
+          storageError instanceof Error
+            ? storageError.message
+            : "No se pudo actualizar el respaldo local.";
+        warning = `El cambio se guardó en MySQL, pero no se pudo actualizar el respaldo de este dispositivo: ${message}`;
+      }
+    } catch (apiError) {
+      setItems(fallbackProducts);
+      try {
+        writeProducts(fallbackProducts, { dispatchEvent: false });
+      } catch (storageError) {
+        const message =
+          storageError instanceof Error
+            ? storageError.message
+            : "No se pudo actualizar el respaldo local.";
+        warning = `El cambio se guardó en MySQL, pero no se pudo refrescar la lista ni el respaldo local: ${message}`;
+      }
+
+      if (!warning) {
+        const message =
+          apiError instanceof Error
+            ? apiError.message
+            : "No se pudo refrescar la lista de productos.";
+        warning = `El cambio se guardó en MySQL, pero no se pudo refrescar la lista desde la API (${message}). Se conserva una copia local como respaldo.`;
+      }
+    }
+
+    ignoreNextProductUpdateEvent.current = true;
+    window.dispatchEvent(new Event(PRODUCTS_UPDATED_EVENT));
+    return warning;
+  }
+
+  function isDefinitiveApiRejection(error: unknown): boolean {
+    return (
+      error instanceof ProductsApiError &&
+      error.status !== undefined &&
+      error.status >= 400 &&
+      error.status < 500
+    );
+  }
+
+  const availableMaterials =
+    draft.category === "Dijes" && draft.subcategory === "Iniciales"
+      ? (["Xuping", "Acero"] satisfies ProductMaterial[])
+      : categoryMaterialOptions[draft.category];
   const searchTerms = searchQuery
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -130,6 +230,7 @@ export default function AdminPage() {
     setDraft((current) => ({
       ...current,
       category,
+      subcategory: category === "Dijes" ? current.subcategory : undefined,
       accessoryType:
         category === "Varones"
           ? current.accessoryType ?? "Cadenas"
@@ -182,7 +283,7 @@ export default function AdminPage() {
     if (imageInputRef.current) imageInputRef.current.value = "";
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setNotice("");
@@ -195,26 +296,61 @@ export default function AdminPage() {
     const product: Product = {
       ...draft,
       id: editingId ?? crypto.randomUUID(),
+      ...(draft.category === "Dijes" && draft.subcategory === "Iniciales"
+        ? { subcategory: draft.subcategory }
+        : { subcategory: undefined }),
       ...((draft.category === "Aritos" || draft.category === "Argollas") &&
       draft.closureType
         ? { closureType: draft.closureType }
         : { closureType: undefined }),
     };
-    const nextItems = editingId
+    const isEditing = editingId !== null;
+    const nextItems = isEditing
       ? items.map((item) => (item.id === editingId ? product : item))
       : [product, ...items];
 
     try {
-      writeProducts(nextItems);
-      setItems(nextItems);
+      if (editingId) {
+        await updateProductApi(editingId, product);
+      } else {
+        await saveProduct(product);
+      }
+
+      const syncWarning = await refreshProductsAfterWrite(nextItems);
       resetForm();
-      setNotice(editingId ? "Producto actualizado." : "Producto agregado.");
+      if (syncWarning) {
+        setError(syncWarning);
+      } else {
+        setNotice(isEditing ? "Producto actualizado." : "Producto agregado.");
+      }
     } catch (saveError) {
-      setError(
+      const message =
         saveError instanceof Error
           ? saveError.message
-          : "No se pudo guardar el producto.",
-      );
+          : "No se pudo guardar el producto.";
+      if (isDefinitiveApiRejection(saveError)) {
+        setError(`La API rechazó la operación: ${message}`);
+        return;
+      }
+
+      try {
+        ignoreNextProductUpdateEvent.current = true;
+        writeProducts(nextItems);
+        setItems(nextItems);
+        resetForm();
+        setError(
+          `MySQL no pudo guardar el producto (${message}). Se conservó solamente en el respaldo local de este dispositivo.`,
+        );
+      } catch (storageError) {
+        ignoreNextProductUpdateEvent.current = false;
+        const storageMessage =
+          storageError instanceof Error
+            ? storageError.message
+            : "No se pudo guardar el respaldo local.";
+        setError(
+          `MySQL no pudo guardar el producto (${message}) y tampoco se pudo guardar el respaldo local: ${storageMessage}`,
+        );
+      }
     }
   }
 
@@ -227,24 +363,50 @@ export default function AdminPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function deleteProduct(product: Product) {
-    if (!window.confirm(`¿Eliminar "${product.name}" del catálogo local?`)) {
+  async function deleteProduct(product: Product) {
+    if (!window.confirm(`¿Eliminar "${product.name}" del catálogo?`)) {
       return;
     }
 
     const nextItems = items.filter((item) => item.id !== product.id);
     try {
-      writeProducts(nextItems);
-      setItems(nextItems);
+      await removeProductApi(product.id);
+      const syncWarning = await refreshProductsAfterWrite(nextItems);
       if (editingId === product.id) resetForm();
-      setNotice("Producto eliminado.");
-      setError("");
+      if (syncWarning) {
+        setError(syncWarning);
+      } else {
+        setNotice("Producto eliminado.");
+        setError("");
+      }
     } catch (saveError) {
-      setError(
+      const message =
         saveError instanceof Error
           ? saveError.message
-          : "No se pudo eliminar el producto.",
-      );
+          : "No se pudo eliminar el producto.";
+      if (isDefinitiveApiRejection(saveError)) {
+        setError(`La API rechazó la operación: ${message}`);
+        return;
+      }
+
+      try {
+        ignoreNextProductUpdateEvent.current = true;
+        writeProducts(nextItems);
+        setItems(nextItems);
+        if (editingId === product.id) resetForm();
+        setError(
+          `MySQL no pudo eliminar el producto (${message}). La eliminación se aplicó solamente al respaldo local de este dispositivo.`,
+        );
+      } catch (storageError) {
+        ignoreNextProductUpdateEvent.current = false;
+        const storageMessage =
+          storageError instanceof Error
+            ? storageError.message
+            : "No se pudo actualizar el respaldo local.";
+        setError(
+          `MySQL no pudo eliminar el producto (${message}) y tampoco se pudo actualizar el respaldo local: ${storageMessage}`,
+        );
+      }
     }
   }
 
@@ -267,16 +429,16 @@ export default function AdminPage() {
             </h1>
           </div>
           <div className="rounded-full border border-gold/40 bg-gold/10 px-4 py-2 text-xs font-medium text-warmBrown">
-            Prototipo local
+            MySQL · sin autenticación
           </div>
         </header>
 
         <aside className="mb-8 rounded-2xl border border-gold/30 bg-white/80 p-4 text-sm leading-6 text-darkBrown/75">
-          <strong className="text-darkBrown">Importante:</strong> este panel es
-          una maqueta sin autenticación. Los cambios y las imágenes se guardan
-          solamente en este navegador y dispositivo. No ingreses información
-          sensible; conecta Supabase y habilita autenticación antes de publicar
-          esta ruta.
+          <strong className="text-darkBrown">Importante:</strong> este panel
+          todavía no tiene autenticación. En desarrollo, los productos se
+          guardan en MySQL; si la API no responde, se usa temporalmente el
+          respaldo local de este dispositivo. Implementa autenticación de
+          administrador antes de publicar esta ruta.
         </aside>
 
         {error && (
@@ -321,7 +483,7 @@ export default function AdminPage() {
                   onChange={(event) =>
                     setDraft({ ...draft, name: event.target.value })
                   }
-                  maxLength={100}
+                  maxLength={150}
                   required
                 />
               </label>
@@ -367,6 +529,35 @@ export default function AdminPage() {
                   </select>
                 </label>
               </div>
+
+              {draft.category === "Dijes" && (
+                <label className="block text-xs font-medium">
+                  Subcategoría
+                  <select
+                    className={inputClassName}
+                    value={draft.subcategory ?? ""}
+                    onChange={(event) => {
+                      const subcategory: ProductSubcategory | undefined =
+                        event.target.value === "Iniciales"
+                          ? "Iniciales"
+                          : undefined;
+                      setDraft({
+                        ...draft,
+                        subcategory,
+                        material:
+                          subcategory === "Iniciales" &&
+                          draft.material !== "Xuping" &&
+                          draft.material !== "Acero"
+                            ? "Xuping"
+                            : draft.material,
+                      });
+                    }}
+                  >
+                    <option value="">Todos los dijes</option>
+                    <option value="Iniciales">Iniciales</option>
+                  </select>
+                </label>
+              )}
 
               {draft.category === "Varones" && (
                 <label className="block text-xs font-medium">
@@ -529,7 +720,7 @@ export default function AdminPage() {
             <div className="mb-6 flex items-end justify-between gap-3">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-warmBrown">
-                  Catálogo local
+                  Catálogo
                 </p>
                 <h2 className="mt-2 font-serif text-2xl">Joyas y accesorios</h2>
               </div>
@@ -559,7 +750,7 @@ export default function AdminPage() {
 
             {!isReady ? (
               <p className="py-8 text-center text-sm text-darkBrown/55">
-                Cargando productos guardados…
+                Cargando productos…
               </p>
             ) : items.length === 0 ? (
               <p className="py-8 text-center font-serif text-lg text-darkBrown/55">

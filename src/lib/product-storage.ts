@@ -53,6 +53,9 @@ function isProduct(value: unknown): value is Product {
     typeof product.name === "string" &&
     isProductCategory(product.category) &&
     isProductMaterial(product.material) &&
+    (product.subcategory === undefined ||
+      (product.category === "Dijes" &&
+        product.subcategory === "Iniciales")) &&
     (product.accessoryType === undefined ||
       validAccessoryTypes.some((type) => type === product.accessoryType)) &&
     (product.closureType === undefined ||
@@ -115,7 +118,10 @@ export function readProducts(): Product[] {
   return migratedProducts;
 }
 
-export function writeProducts(nextProducts: Product[]): void {
+export function writeProducts(
+  nextProducts: Product[],
+  options: { dispatchEvent?: boolean } = {},
+): void {
   try {
     window.localStorage.setItem(
       PRODUCTS_STORAGE_KEY,
@@ -134,5 +140,7 @@ export function writeProducts(nextProducts: Product[]): void {
     throw error;
   }
 
-  window.dispatchEvent(new Event(PRODUCTS_UPDATED_EVENT));
+  if (options.dispatchEvent !== false) {
+    window.dispatchEvent(new Event(PRODUCTS_UPDATED_EVENT));
+  }
 }

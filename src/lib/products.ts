@@ -14,6 +14,7 @@ export type ProductCategory =
   | "Argollas"
   | "Collares"
   | "Dijes"
+  | "Rosarios"
   | "Anillos"
   | "Pulseras"
   | "Piercings"
@@ -22,8 +23,11 @@ export type ProductCategory =
   | "Relojes"
   | "Carteras"
   | "Billeteras"
+  | "Mini joyeros"
   | "Varones"
   | "Tobilleras";
+
+export type ProductSubcategory = "Iniciales";
 
 export type MasculineAccessoryType =
   | "Cadenas"
@@ -35,6 +39,7 @@ export interface Product {
   id: string;
   name: string;
   category: ProductCategory;
+  subcategory?: ProductSubcategory;
   accessoryType?: MasculineAccessoryType;
   material: ProductMaterial;
   closureType?: ClosureType;
@@ -50,6 +55,7 @@ export const categories = [
   "Argollas",
   "Collares",
   "Dijes",
+  "Rosarios",
   "Anillos",
   "Pulseras",
   "Piercings",
@@ -58,6 +64,7 @@ export const categories = [
   "Relojes",
   "Carteras",
   "Billeteras",
+  "Mini joyeros",
   "Varones",
   "Tobilleras",
 ] as const;
@@ -67,6 +74,7 @@ export const materialsByCategory: Record<ProductCategory, ProductMaterial[]> = {
   Argollas: ["Artesanal", "Folleado", "Acero", "Magold", "Xuping"],
   Collares: ["Artesanal", "Acero", "Magold", "Xuping"],
   Dijes: ["Artesanal", "Acero", "Magold", "Xuping"],
+  Rosarios: ["Acero", "Xuping"],
   Anillos: ["Acero", "Magold", "Xuping"],
   Pulseras: ["Acero", "Magold", "Xuping"],
   Piercings: ["Acero", "Xuping"],
@@ -75,6 +83,7 @@ export const materialsByCategory: Record<ProductCategory, ProductMaterial[]> = {
   Relojes: ["Acero", "Xuping"],
   Carteras: [],
   Billeteras: [],
+  "Mini joyeros": [],
   Varones: ["Acero", "Artesanal"],
   Tobilleras: ["Xuping", "Acero"],
 };
@@ -87,6 +96,7 @@ export const categoryMaterialOptions: Record<
   Argollas: materialsByCategory.Argollas,
   Collares: materialsByCategory.Collares,
   Dijes: materialsByCategory.Dijes,
+  Rosarios: materialsByCategory.Rosarios,
   Anillos: materialsByCategory.Anillos,
   Pulseras: materialsByCategory.Pulseras,
   Piercings: materialsByCategory.Piercings,
@@ -95,6 +105,7 @@ export const categoryMaterialOptions: Record<
   Relojes: [...materialsByCategory.Relojes, "Magold"],
   Carteras: ["Cuero sintético"],
   Billeteras: ["Cuero sintético"],
+  "Mini joyeros": ["Artesanal"],
   Varones: ["Acero", "Artesanal"],
   Tobilleras: ["Xuping", "Acero"],
 };
@@ -105,7 +116,7 @@ export const materialFilters: {
 }[] = [
   { label: "Todos los materiales", value: null },
   { label: "Marca Xuping (Bañado en Oro Antialérgico)", value: "Xuping" },
-  { label: "Marca Magold (Bañado en Oro 18K)", value: "Magold" },
+  { label: "Marca Magold (Bañado en Oro 24K)", value: "Magold" },
   { label: "Folleado", value: "Folleado" },
   { label: "Acero Inoxidable", value: "Acero" },
   { label: "Titanio", value: "Titanio" },
@@ -114,7 +125,7 @@ export const materialFilters: {
 
 export const materialLabels: Record<ProductMaterial, string> = {
   Xuping: "Marca Xuping · Oro antialérgico",
-  Magold: "Marca Magold · Oro 18K",
+  Magold: "Marca Magold · Oro 24K",
   Folleado: "Folleado",
   Acero: "Acero inoxidable",
   Titanio: "Titanio",
@@ -124,7 +135,7 @@ export const materialLabels: Record<ProductMaterial, string> = {
 
 export const materialBadgeLabels: Record<ProductMaterial, string> = {
   Xuping: "Xuping",
-  Magold: "Magold 18K",
+  Magold: "Magold 24K",
   Folleado: "Folleado",
   Acero: "Acero",
   Titanio: "Titanio",
@@ -155,7 +166,7 @@ export const products: Product[] = [
     price: 180,
     image:
       "https://images.unsplash.com/photo-1630019852942-f89202989a59?auto=format&fit=crop&w=900&q=85",
-    description: "Diseño cómodo con baño de oro 18K y cierre de tapa plana.",
+    description: "Diseño cómodo con baño de oro 24K y cierre de tapa plana.",
     inStock: true,
   },
   {
