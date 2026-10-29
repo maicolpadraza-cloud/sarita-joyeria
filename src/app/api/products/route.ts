@@ -3,11 +3,10 @@ import {
   createProduct,
   getAllProducts,
 } from "@/lib/product-repository";
-import {
-  ProductValidationError,
-  validateProductInput,
-} from "@/lib/product-validation";
+import { productInputSchema } from "@/lib/product-validation";
 import type { Product } from "@/lib/products";
+import { isAdminRequest } from "@/lib/admin-auth";
+import { parseJsonBody } from "@/lib/api-validation";
 
 export async function GET() {
   try {
@@ -23,29 +22,18 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  if (process.env.NODE_ENV === "production") {
-    // TODO: Add real administrator authentication and authorization before publishing.
+  if (!(await isAdminRequest(request))) {
     return Response.json(
-      {
-        error:
-          "Escritura deshabilitada hasta implementar autenticación de administrador",
-      },
-      { status: 403 },
+      { error: "No autorizado." },
+      { status: 401 },
     );
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json(
-      { error: "El cuerpo de la solicitud no contiene JSON válido." },
-      { status: 400 },
-    );
-  }
+  const parsedBody = await parseJsonBody(request, productInputSchema);
+  if (!parsedBody.success) return parsedBody.response;
+  const input = parsedBody.data;
 
   try {
-    const input = validateProductInput(body);
     const product: Product = {
       ...input,
       id: input.id ?? randomUUID(),
@@ -53,12 +41,9 @@ export async function POST(request: Request) {
     const createdProduct = await createProduct(product);
     return Response.json({ product: createdProduct }, { status: 201 });
   } catch (error) {
-    if (error instanceof ProductValidationError) {
-      return Response.json({ error: error.message }, { status: 400 });
-    }
     if (isDuplicateIdError(error)) {
       return Response.json(
-        { error: "Ya existe un producto con ese identificador." },
+        { error: "No se pudo crear el producto con esos datos." },
         { status: 400 },
       );
     }

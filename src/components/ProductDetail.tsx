@@ -2,25 +2,41 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   materialBadgeLabels,
   materialLabels,
-  products,
   type Product,
 } from "@/lib/products";
+import { isAllowedProductImageUrl } from "@/lib/product-validation";
 import {
   PRODUCTS_UPDATED_EVENT,
   readProducts,
 } from "@/lib/product-storage";
 import { fetchProductById } from "@/lib/products-api";
-import { createProductOrderUrl } from "@/lib/whatsapp";
+import {
+  createProductOrderUrl,
+  isWhatsAppConfigured,
+} from "@/lib/whatsapp";
+import { getSiteUrl } from "@/lib/site-url";
 
 const bolivianCurrency = new Intl.NumberFormat("es-BO", {
   style: "currency",
   currency: "BOB",
   maximumFractionDigits: 2,
 });
+
+function subscribeToOrigin(): () => void {
+  return () => {};
+}
+
+function getOriginSnapshot(): string {
+  return getSiteUrl()?.origin ?? window.location.origin;
+}
+
+function getServerOriginSnapshot(): string {
+  return getSiteUrl()?.origin ?? "";
+}
 
 type ProductDetailProps = {
   productId: string;
@@ -31,11 +47,15 @@ export default function ProductDetail({
   productId,
   returnHref,
 }: ProductDetailProps) {
-  const [product, setProduct] = useState<Product | null>(
-    () => products.find((item) => item.id === productId) ?? null,
+  const siteOrigin = useSyncExternalStore(
+    subscribeToOrigin,
+    getOriginSnapshot,
+    getServerOriginSnapshot,
   );
+  const [product, setProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [loadedProductId, setLoadedProductId] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -53,28 +73,36 @@ export default function ProductDetail({
       } catch (apiError) {
         if (!isMounted || currentRequest !== requestVersion) return;
 
-        try {
-          const fallbackProduct =
-            readProducts().find((item) => item.id === productId) ?? null;
-          setProduct(fallbackProduct);
-          setLoadError(
-            fallbackProduct
-              ? ""
-              : apiError instanceof Error
-                ? apiError.message
-                : "No se pudo cargar la información de esta joya.",
-          );
-        } catch (storageError) {
+        const apiMessage =
+          apiError instanceof Error
+            ? apiError.message
+            : "No se pudo cargar la información de esta joya.";
+        if (process.env.NODE_ENV === "development") {
+          try {
+            const fallbackProduct =
+              readProducts().find((item) => item.id === productId) ?? null;
+            setProduct(fallbackProduct);
+            setLoadError(
+              fallbackProduct
+                ? ""
+                : `${apiMessage} El respaldo local de desarrollo no contiene este producto.`,
+            );
+          } catch (storageError) {
+            const storageMessage =
+              storageError instanceof Error
+                ? storageError.message
+                : "No se pudieron cargar los datos locales.";
+            setProduct(null);
+            setLoadError(`${apiMessage} ${storageMessage}`);
+          }
+        } else {
           setProduct(null);
-          setLoadError(
-            storageError instanceof Error
-              ? storageError.message
-              : "No se pudo cargar la información de esta joya.",
-          );
+          setLoadError(`${apiMessage} Inténtalo de nuevo más tarde.`);
         }
       } finally {
         if (isMounted && currentRequest === requestVersion) {
           setIsLoading(false);
+          setLoadedProductId(productId);
         }
       }
     };
@@ -91,10 +119,23 @@ export default function ProductDetail({
     };
   }, [productId]);
 
-  if (isLoading) {
+  if (isLoading || loadedProductId !== productId) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#FCF7F4] px-6 text-sm text-[#765B50]">
-        Cargando información de la joya…
+      <main
+        className="min-h-screen animate-pulse bg-[#FCF7F4] px-5 py-10 motion-reduce:animate-none sm:px-8"
+        aria-busy="true"
+        aria-label="Cargando información del producto"
+      >
+        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-2 lg:items-center lg:gap-16">
+          <div className="aspect-square rounded-2xl bg-[#EADDD7]" />
+          <div className="space-y-5">
+            <div className="h-4 w-1/3 rounded bg-[#EADDD7]" />
+            <div className="h-10 w-4/5 rounded bg-[#EADDD7]" />
+            <div className="h-8 w-1/3 rounded bg-[#EADDD7]" />
+            <div className="h-28 rounded-xl bg-[#EADDD7]" />
+            <div className="h-14 w-full rounded-xl bg-[#EADDD7] sm:w-72" />
+          </div>
+        </div>
       </main>
     );
   }
@@ -120,6 +161,21 @@ export default function ProductDetail({
     );
   }
 
+  const currentProduct = product;
+  const productUrl = siteOrigin
+    ? new URL(
+        `/productos/${encodeURIComponent(currentProduct.id)}`,
+        siteOrigin,
+      ).toString()
+    : "";
+  const whatsappHref = productUrl
+    ? createProductOrderUrl(
+        currentProduct,
+        productUrl,
+        !currentProduct.inStock,
+      )
+    : null;
+
   return (
     <main className="min-h-screen bg-[#FCF7F4] text-[#301C18]">
       <header className="border-b border-[#EADDD7] bg-[#F1D5D5]">
@@ -143,7 +199,11 @@ export default function ProductDetail({
       <section className="mx-auto grid w-full max-w-7xl gap-8 px-5 py-8 sm:px-8 sm:py-12 lg:grid-cols-2 lg:items-center lg:gap-16 lg:py-16">
         <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-[#F9EFEB]">
           <Image
-            src={product.image}
+            src={
+              isAllowedProductImageUrl(product.image)
+                ? product.image
+                : "/logo-luna.png"
+            }
             alt={product.name}
             fill
             sizes="(max-width: 1023px) 100vw, 50vw"
@@ -200,14 +260,34 @@ export default function ProductDetail({
             </p>
           )}
 
-          <a
-            href={createProductOrderUrl(product)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-8 inline-flex min-h-12 w-full items-center justify-center border border-[#A7794F] bg-[#24150F] px-6 py-3.5 text-center font-boutique text-xs font-medium uppercase tracking-[0.12em] text-white transition-colors duration-200 hover:bg-[#A7794F] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#24150F] motion-reduce:transition-none sm:w-auto sm:min-w-72"
-          >
-            Hacer pedido por WhatsApp
-          </a>
+          {!isWhatsAppConfigured() ? (
+            <p
+              className="mt-8 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+              role="alert"
+            >
+              WhatsApp no está configurado. Contacta con la tienda para
+              consultar este producto.
+            </p>
+          ) : whatsappHref ? (
+            <a
+              href={whatsappHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-8 inline-flex min-h-14 w-full items-center justify-center border border-[#A7794F] bg-[#24150F] px-6 py-3.5 text-center font-boutique text-xs font-medium uppercase tracking-[0.12em] text-white transition-colors duration-200 hover:bg-[#A7794F] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#24150F] motion-reduce:transition-none sm:w-auto sm:min-w-72"
+            >
+              {currentProduct.inStock
+                ? "Pedir por WhatsApp"
+                : "Consultar disponibilidad"}
+            </a>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="mt-8 inline-flex min-h-14 w-full items-center justify-center border border-[#A7794F] bg-[#24150F] px-6 py-3.5 text-center font-boutique text-xs font-medium uppercase tracking-[0.12em] text-white opacity-70 sm:w-auto sm:min-w-72"
+            >
+              Preparando enlace…
+            </button>
+          )}
         </div>
       </section>
     </main>

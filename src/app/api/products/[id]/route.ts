@@ -4,10 +4,12 @@ import {
   updateProduct,
 } from "@/lib/product-repository";
 import {
-  ProductValidationError,
-  validateProductInput,
+  productIdSchema,
+  productInputSchema,
 } from "@/lib/product-validation";
 import type { Product } from "@/lib/products";
+import { isAdminRequest } from "@/lib/admin-auth";
+import { parseJsonBody } from "@/lib/api-validation";
 
 type ProductRouteContext = {
   params: Promise<{ id: string }>;
@@ -18,7 +20,8 @@ export async function GET(
   { params }: ProductRouteContext,
 ) {
   const { id } = await params;
-  if (id.length === 0 || id.length > 64) {
+  const parsedId = productIdSchema.safeParse(id);
+  if (!parsedId.success) {
     return Response.json(
       { error: "El identificador del producto no es válido." },
       { status: 400 },
@@ -26,7 +29,7 @@ export async function GET(
   }
 
   try {
-    const product = await getProductById(id);
+    const product = await getProductById(parsedId.data);
     if (!product) {
       return Response.json(
         { error: "No se encontró el producto solicitado." },
@@ -48,39 +51,29 @@ export async function PUT(
   request: Request,
   { params }: ProductRouteContext,
 ) {
-  if (process.env.NODE_ENV === "production") {
-    // TODO: Add real administrator authentication and authorization before publishing.
+  if (!(await isAdminRequest(request))) {
     return Response.json(
-      {
-        error:
-          "Escritura deshabilitada hasta implementar autenticación de administrador",
-      },
-      { status: 403 },
+      { error: "No autorizado." },
+      { status: 401 },
     );
   }
 
   const { id } = await params;
-  if (id.length === 0 || id.length > 64) {
+  const parsedId = productIdSchema.safeParse(id);
+  if (!parsedId.success) {
     return Response.json(
       { error: "El identificador del producto no es válido." },
       { status: 400 },
     );
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json(
-      { error: "El cuerpo de la solicitud no contiene JSON válido." },
-      { status: 400 },
-    );
-  }
+  const parsedBody = await parseJsonBody(request, productInputSchema);
+  if (!parsedBody.success) return parsedBody.response;
+  const input = parsedBody.data;
 
   try {
-    const input = validateProductInput(body);
-    const product: Product = { ...input, id };
-    const updatedProduct = await updateProduct(id, product);
+    const product: Product = { ...input, id: parsedId.data };
+    const updatedProduct = await updateProduct(parsedId.data, product);
     if (!updatedProduct) {
       return Response.json(
         { error: "No se encontró el producto que deseas actualizar." },
@@ -90,10 +83,6 @@ export async function PUT(
 
     return Response.json({ product: updatedProduct });
   } catch (error) {
-    if (error instanceof ProductValidationError) {
-      return Response.json({ error: error.message }, { status: 400 });
-    }
-
     console.error("Error al actualizar el producto:", error);
     return Response.json(
       { error: "No se pudo actualizar el producto. Inténtalo de nuevo." },
@@ -103,22 +92,19 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: ProductRouteContext,
 ) {
-  if (process.env.NODE_ENV === "production") {
-    // TODO: Add real administrator authentication and authorization before publishing.
+  if (!(await isAdminRequest(request))) {
     return Response.json(
-      {
-        error:
-          "Escritura deshabilitada hasta implementar autenticación de administrador",
-      },
-      { status: 403 },
+      { error: "No autorizado." },
+      { status: 401 },
     );
   }
 
   const { id } = await params;
-  if (id.length === 0 || id.length > 64) {
+  const parsedId = productIdSchema.safeParse(id);
+  if (!parsedId.success) {
     return Response.json(
       { error: "El identificador del producto no es válido." },
       { status: 400 },
@@ -126,7 +112,7 @@ export async function DELETE(
   }
 
   try {
-    const deleted = await deleteProduct(id);
+    const deleted = await deleteProduct(parsedId.data);
     if (!deleted) {
       return Response.json(
         { error: "No se encontró el producto que deseas eliminar." },

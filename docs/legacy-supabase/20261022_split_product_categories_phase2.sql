@@ -1,4 +1,5 @@
 -- Phase 2 for public.productos(categoria).
+-- Historical Supabase migration; it is not used by the current MySQL backend.
 -- Run only after the Phase 1 script has committed. Grouped legacy categories
 -- are assigned to one representative category for later manual classification.
 

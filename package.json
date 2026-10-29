@@ -6,18 +6,22 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "hash-password": "node scripts/hash-password.mjs",
+    "apply-schema": "node --env-file=.env.local scripts/apply-schema.mjs",
+    "seed": "node --env-file=.env.local scripts/seed.mjs",
+    "verify-db": "node --env-file=.env.local scripts/verify-db.mjs",
     "lint": "eslint"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.118.0",
-    "clsx": "^2.1.1",
+    "bcryptjs": "^3.0.3",
     "framer-motion": "^14.5.0",
+    "jose": "^6.2.13",
     "lucide-react": "^1.61.0",
     "mysql2": "^3.24.6",
     "next": "16.4.2",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "tailwind-merge": "^3.7.0"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",

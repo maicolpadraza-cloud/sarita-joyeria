@@ -22,14 +22,24 @@ async function requestJson(
   path: string,
   init?: RequestInit,
 ): Promise<unknown> {
-  const response = await fetch(path, {
-    ...init,
-    cache: "no-store",
-    headers: {
-      ...(init?.body ? { "Content-Type": "application/json" } : {}),
-      ...init?.headers,
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      ...init,
+      cache: "no-store",
+      signal: init?.signal ?? AbortSignal.timeout(10_000),
+      headers: {
+        ...(init?.body ? { "Content-Type": "application/json" } : {}),
+        ...init?.headers,
+      },
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error && error.name === "TimeoutError"
+        ? "La consulta del catálogo tardó demasiado. Inténtalo de nuevo."
+        : "No se pudo conectar con el catálogo. Comprueba tu conexión e inténtalo de nuevo.";
+    throw new ProductsApiError(message);
+  }
 
   let payload: unknown;
   try {

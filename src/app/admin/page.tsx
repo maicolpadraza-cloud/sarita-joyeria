@@ -2,7 +2,7 @@
 
 import {
   ArrowLeft,
-  ImagePlus,
+  LogOut,
   PackagePlus,
   Pencil,
   Search,
@@ -10,19 +10,19 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   useEffect,
   useRef,
   useState,
-  type ChangeEvent,
   type FormEvent,
 } from "react";
 import {
   categories,
   categoryMaterialOptions,
   materialLabels,
-  products as initialProducts,
   type ClosureType,
   type MasculineAccessoryType,
   type Product,
@@ -30,6 +30,7 @@ import {
   type ProductMaterial,
   type ProductSubcategory,
 } from "@/lib/products";
+import { isAllowedProductImageUrl } from "@/lib/product-validation";
 import {
   PRODUCTS_UPDATED_EVENT,
   readProducts,
@@ -53,8 +54,6 @@ const masculineAccessoryTypes: MasculineAccessoryType[] = [
   "Anillos",
   "Billeteras",
 ];
-const maxImageSize = 512 * 1024;
-
 type ProductDraft = Omit<Product, "id">;
 
 function createEmptyDraft(): ProductDraft {
@@ -75,15 +74,33 @@ const inputClassName =
   "mt-2 w-full rounded-xl border border-darkBrown/15 bg-white px-4 py-3 text-sm text-darkBrown outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/20";
 
 export default function AdminPage() {
-  const [items, setItems] = useState<Product[]>(initialProducts);
+  const router = useRouter();
+  const [items, setItems] = useState<Product[]>([]);
   const [draft, setDraft] = useState<ProductDraft>(createEmptyDraft);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [isReady, setIsReady] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const imageInputRef = useRef<HTMLInputElement>(null);
   const ignoreNextProductUpdateEvent = useRef(false);
+
+  async function handleLogout() {
+    setError("");
+    try {
+      const response = await fetch("/api/auth/logout", { method: "POST" });
+      if (!response.ok) {
+        throw new Error("No se pudo cerrar sesión. Inténtalo de nuevo.");
+      }
+      router.replace("/admin/login");
+      router.refresh();
+    } catch (logoutError) {
+      setError(
+        logoutError instanceof Error
+          ? logoutError.message
+          : "No se pudo cerrar sesión. Inténtalo de nuevo.",
+      );
+    }
+  }
 
   useEffect(() => {
     let isMounted = true;
@@ -113,17 +130,23 @@ export default function AdminPage() {
           apiError instanceof Error
             ? apiError.message
             : "No se pudo consultar el catálogo en MySQL.";
-        try {
-          setItems(readProducts());
-          setError(
-            `${apiMessage} Se muestran los productos guardados en este dispositivo.`,
-          );
-        } catch (storageError) {
-          const storageMessage =
-            storageError instanceof Error
-              ? storageError.message
-              : "No se pudieron cargar los productos guardados.";
-          setError(`${apiMessage} ${storageMessage}`);
+        if (process.env.NODE_ENV === "development") {
+          try {
+            setItems(readProducts());
+            setError(
+              `${apiMessage} Se muestran los productos guardados localmente (solo desarrollo).`,
+            );
+          } catch (storageError) {
+            const storageMessage =
+              storageError instanceof Error
+                ? storageError.message
+                : "No se pudieron cargar los productos guardados.";
+            setItems([]);
+            setError(`${apiMessage} ${storageMessage}`);
+          }
+        } else {
+          setItems([]);
+          setError(`${apiMessage} Inténtalo de nuevo más tarde.`);
         }
       } finally {
         if (isMounted && currentRequest === requestVersion) {
@@ -152,33 +175,37 @@ export default function AdminPage() {
     try {
       const remoteProducts = await fetchProducts();
       setItems(remoteProducts);
-      try {
-        writeProducts(remoteProducts, { dispatchEvent: false });
-      } catch (storageError) {
-        const message =
-          storageError instanceof Error
-            ? storageError.message
-            : "No se pudo actualizar el respaldo local.";
-        warning = `El cambio se guardó en MySQL, pero no se pudo actualizar el respaldo de este dispositivo: ${message}`;
+      if (process.env.NODE_ENV === "development") {
+        try {
+          writeProducts(remoteProducts, { dispatchEvent: false });
+        } catch (storageError) {
+          const message =
+            storageError instanceof Error
+              ? storageError.message
+              : "No se pudo actualizar el respaldo local.";
+          warning = `El cambio se guardó en MySQL, pero no se pudo actualizar el respaldo de este dispositivo: ${message}`;
+        }
       }
     } catch (apiError) {
-      setItems(fallbackProducts);
-      try {
-        writeProducts(fallbackProducts, { dispatchEvent: false });
-      } catch (storageError) {
-        const message =
-          storageError instanceof Error
-            ? storageError.message
-            : "No se pudo actualizar el respaldo local.";
-        warning = `El cambio se guardó en MySQL, pero no se pudo refrescar la lista ni el respaldo local: ${message}`;
-      }
-
-      if (!warning) {
-        const message =
-          apiError instanceof Error
-            ? apiError.message
-            : "No se pudo refrescar la lista de productos.";
-        warning = `El cambio se guardó en MySQL, pero no se pudo refrescar la lista desde la API (${message}). Se conserva una copia local como respaldo.`;
+      const message =
+        apiError instanceof Error
+          ? apiError.message
+          : "No se pudo refrescar la lista de productos.";
+      if (process.env.NODE_ENV === "development") {
+        setItems(fallbackProducts);
+        try {
+          writeProducts(fallbackProducts, { dispatchEvent: false });
+          warning = `El cambio se guardó en MySQL, pero no se pudo refrescar la lista desde la API (${message}). Se conserva una copia local como respaldo de desarrollo.`;
+        } catch (storageError) {
+          const storageMessage =
+            storageError instanceof Error
+              ? storageError.message
+              : "No se pudo actualizar el respaldo local.";
+          warning = `El cambio se guardó en MySQL, pero no se pudo refrescar la lista (${message}) ni el respaldo local: ${storageMessage}`;
+        }
+      } else {
+        setItems([]);
+        warning = `El cambio se guardó en MySQL, pero no se pudo refrescar la lista desde la API: ${message}`;
       }
     }
 
@@ -245,42 +272,10 @@ export default function AdminPage() {
     }));
   }
 
-  function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setError("");
-    if (!file.type.startsWith("image/")) {
-      setError("Selecciona un archivo de imagen válido.");
-      event.target.value = "";
-      return;
-    }
-    if (file.size > maxImageSize) {
-      setError("La imagen debe pesar 512 KB o menos para guardarse localmente.");
-      event.target.value = "";
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result !== "string") {
-        setError("No se pudo generar la vista previa de la imagen.");
-        return;
-      }
-      const image = reader.result;
-      setDraft((current) => ({ ...current, image }));
-    };
-    reader.onerror = () => {
-      setError("No se pudo leer la imagen seleccionada.");
-    };
-    reader.readAsDataURL(file);
-  }
-
   function resetForm() {
     setDraft(createEmptyDraft());
     setEditingId(null);
     setNotice("");
-    if (imageInputRef.current) imageInputRef.current.value = "";
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -330,6 +325,11 @@ export default function AdminPage() {
           : "No se pudo guardar el producto.";
       if (isDefinitiveApiRejection(saveError)) {
         setError(`La API rechazó la operación: ${message}`);
+        return;
+      }
+
+      if (process.env.NODE_ENV !== "development") {
+        setError(`MySQL no pudo guardar el producto: ${message}`);
         return;
       }
 
@@ -389,6 +389,11 @@ export default function AdminPage() {
         return;
       }
 
+      if (process.env.NODE_ENV !== "development") {
+        setError(`MySQL no pudo eliminar el producto: ${message}`);
+        return;
+      }
+
       try {
         ignoreNextProductUpdateEvent.current = true;
         writeProducts(nextItems);
@@ -428,18 +433,20 @@ export default function AdminPage() {
               Administración de productos
             </h1>
           </div>
-          <div className="rounded-full border border-gold/40 bg-gold/10 px-4 py-2 text-xs font-medium text-warmBrown">
-            MySQL · sin autenticación
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="rounded-full border border-gold/40 bg-gold/10 px-4 py-2 text-xs font-medium text-warmBrown">
+              MySQL · panel protegido
+            </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-darkBrown/15 bg-white px-4 py-2 text-sm font-medium text-darkBrown transition-colors hover:bg-darkBrown/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+            >
+              <LogOut size={16} aria-hidden="true" />
+              Cerrar sesión
+            </button>
           </div>
         </header>
-
-        <aside className="mb-8 rounded-2xl border border-gold/30 bg-white/80 p-4 text-sm leading-6 text-darkBrown/75">
-          <strong className="text-darkBrown">Importante:</strong> este panel
-          todavía no tiene autenticación. En desarrollo, los productos se
-          guardan en MySQL; si la API no responde, se usa temporalmente el
-          respaldo local de este dispositivo. Implementa autenticación de
-          administrador antes de publicar esta ruta.
-        </aside>
 
         {error && (
           <p
@@ -643,37 +650,34 @@ export default function AdminPage() {
               </label>
 
               <div>
-                <label
-                  className="block text-xs font-medium"
-                  htmlFor="product-image"
-                >
-                  Foto del producto{" "}
-                  <span className="font-normal text-darkBrown/50">
-                    (máximo 512 KB)
-                  </span>
-                </label>
-                <label
-                  htmlFor="product-image"
-                  className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-darkBrown/25 bg-cream px-4 py-4 text-sm text-warmBrown transition-colors hover:border-gold"
-                >
-                  <ImagePlus size={18} />
-                  Elegir imagen del dispositivo
+                <label className="block text-xs font-medium" htmlFor="product-image">
+                  URL de la foto del producto
                 </label>
                 <input
-                  ref={imageInputRef}
                   id="product-image"
-                  className="sr-only"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageChange}
+                  className={inputClassName}
+                  type="text"
+                  inputMode="url"
+                  value={draft.image}
+                  onChange={(event) =>
+                    setDraft({ ...draft, image: event.target.value })
+                  }
+                  maxLength={2048}
+                  placeholder="https://images.unsplash.com/… o /images/joya.jpg"
+                  required
                 />
-                {draft.image && (
+                <p className="mt-2 text-xs leading-5 text-darkBrown/55">
+                  Usa una ruta del sitio o una URL HTTPS de images.unsplash.com.
+                </p>
+                {isAllowedProductImageUrl(draft.image) && (
                   <div className="mt-3 flex items-center gap-3">
-                    <div
-                      className="h-20 w-16 rounded-lg bg-cover bg-center"
-                      style={{ backgroundImage: `url('${draft.image}')` }}
-                      role="img"
-                      aria-label={`Vista previa: ${draft.name || "producto"}`}
+                    <Image
+                      src={draft.image}
+                      alt={`Vista previa: ${draft.name || "producto"}`}
+                      width={64}
+                      height={80}
+                      unoptimized
+                      className="h-20 w-16 rounded-lg object-cover"
                     />
                     <span className="text-xs text-darkBrown/60">
                       Vista previa seleccionada
@@ -767,12 +771,22 @@ export default function AdminPage() {
                     key={product.id}
                     className="flex items-center gap-3 py-4 first:pt-0"
                   >
-                    <div
-                      className="h-16 w-14 shrink-0 rounded-lg bg-[#FDF8F5] bg-cover bg-center"
-                      style={{ backgroundImage: `url('${product.image}')` }}
-                      role="img"
-                      aria-label={product.name}
-                    />
+                    {isAllowedProductImageUrl(product.image) ? (
+                      <Image
+                        src={product.image}
+                        alt={product.name}
+                        width={56}
+                        height={64}
+                        unoptimized
+                        className="h-16 w-14 shrink-0 rounded-lg object-cover"
+                      />
+                    ) : (
+                      <div
+                        className="h-16 w-14 shrink-0 rounded-lg bg-[#FDF8F5]"
+                        role="img"
+                        aria-label={`Imagen no disponible: ${product.name}`}
+                      />
+                    )}
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">
                         {product.name}

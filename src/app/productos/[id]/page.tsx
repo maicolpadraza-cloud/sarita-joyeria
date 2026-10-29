@@ -1,7 +1,11 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import ProductDetail from "@/components/ProductDetail";
 import { categories, materialFilters } from "@/lib/products";
 import type { MasculineAccessoryType } from "@/lib/products";
+import { getProductById } from "@/lib/product-repository";
+import { getSiteUrl } from "@/lib/site-url";
+import { isAllowedProductImageUrl } from "@/lib/product-validation";
 
 type ProductPageProps = {
   params: Promise<{ id: string }>;
@@ -12,6 +16,51 @@ type ProductPageProps = {
     accessory?: string | string[];
   }>;
 };
+
+export async function generateMetadata({
+  params,
+}: ProductPageProps): Promise<Metadata> {
+  const { id } = await params;
+  try {
+    const product = await getProductById(id);
+    if (!product) {
+      return { title: "Joya no encontrada | Sarita Joyería" };
+    }
+
+    return {
+      title: `${product.name} | Sarita Joyería`,
+      description: `${product.category} de ${product.material}. ${product.description}`,
+      alternates: {
+        canonical: `/productos/${encodeURIComponent(product.id)}`,
+      },
+      openGraph: {
+        type: "website",
+        title: `${product.name} | Sarita Joyería`,
+        description: `${product.category} de ${product.material}. ${product.description}`,
+        url: `/productos/${encodeURIComponent(product.id)}`,
+        images: [
+          isAllowedProductImageUrl(product.image)
+            ? product.image
+            : "/logo-luna.png",
+        ],
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: `${product.name} | Sarita Joyería`,
+        description: `${product.category} de ${product.material}. ${product.description}`,
+        images: [
+          isAllowedProductImageUrl(product.image)
+            ? product.image
+            : "/logo-luna.png",
+        ],
+      },
+      ...(getSiteUrl() ? { metadataBase: getSiteUrl() } : {}),
+    };
+  } catch (error) {
+    console.error("Could not generate product sharing metadata:", error);
+    return { title: "Sarita Joyería y Accesorios" };
+  }
+}
 
 const accessoryTypes: MasculineAccessoryType[] = [
   "Cadenas",

@@ -38,7 +38,8 @@ export default function Home(props: HomeRouteProps) {
   );
 }
 
-async function HomePageContent({ searchParams }: HomeRouteProps) {
+async function HomePageContent({ 
+  searchParams }: HomeRouteProps) {
   const query = await searchParams;
   const requestedCategory = firstValue(query.category);
   const requestedMaterial = firstValue(query.material);

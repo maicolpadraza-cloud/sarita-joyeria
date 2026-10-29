@@ -34,6 +34,14 @@ const legacyCategoryMap: Record<string, ProductCategory> = {
   "Carteras & Billeteras": "Carteras",
 };
 
+function ensureDevelopmentStorage(): void {
+  if (process.env.NODE_ENV !== "development") {
+    throw new Error(
+      "El respaldo local del catálogo solo está disponible en desarrollo.",
+    );
+  }
+}
+
 function isProductCategory(value: unknown): value is ProductCategory {
   return categories.slice(1).some((category) => category === value);
 }
@@ -66,11 +74,14 @@ function isProduct(value: unknown): value is Product {
     Number.isFinite(product.price) &&
     typeof product.image === "string" &&
     typeof product.description === "string" &&
+    product.description.length <= 300 &&
     typeof product.inStock === "boolean"
   );
 }
 
 export function readProducts(): Product[] {
+  ensureDevelopmentStorage();
+
   if (typeof window === "undefined") {
     return products;
   }
@@ -122,6 +133,8 @@ export function writeProducts(
   nextProducts: Product[],
   options: { dispatchEvent?: boolean } = {},
 ): void {
+  ensureDevelopmentStorage();
+
   try {
     window.localStorage.setItem(
       PRODUCTS_STORAGE_KEY,

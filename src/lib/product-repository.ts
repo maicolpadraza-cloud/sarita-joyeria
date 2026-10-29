@@ -4,6 +4,7 @@ import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import { db } from "@/lib/db";
 import {
   ProductValidationError,
+  isAllowedProductImageUrl,
   validateProductInput,
 } from "@/lib/product-validation";
 import type { Product } from "@/lib/products";
@@ -26,23 +27,6 @@ interface CategoryIdRow extends RowDataPacket {
   id: number;
 }
 
-const productSelect = `
-  SELECT
-    p.id,
-    p.name,
-    c.name AS category,
-    p.subcategory,
-    p.accessory_type AS accessoryType,
-    p.material,
-    p.closure_type AS closureType,
-    p.price,
-    p.image,
-    p.description,
-    p.in_stock AS inStock
-  FROM products p
-  INNER JOIN categories c ON c.id = p.category_id
-`;
-
 function mapProductRow(row: ProductRow): Product {
   return validateProductInput(
     {
@@ -54,7 +38,9 @@ function mapProductRow(row: ProductRow): Product {
       material: row.material,
       closureType: row.closureType ?? undefined,
       price: Number(row.price),
-      image: row.image,
+      image: isAllowedProductImageUrl(row.image)
+        ? row.image
+        : "/logo-luna.png",
       description: row.description,
       inStock: Boolean(row.inStock),
     },
@@ -79,14 +65,42 @@ async function getCategoryId(category: string): Promise<number> {
 
 export async function getAllProducts(): Promise<Product[]> {
   const [rows] = await db.execute<ProductRow[]>(
-    `${productSelect} ORDER BY p.created_at DESC, p.id ASC`,
+    `SELECT
+      p.id,
+      p.name,
+      c.name AS category,
+      p.subcategory,
+      p.accessory_type AS accessoryType,
+      p.material,
+      p.closure_type AS closureType,
+      p.price,
+      p.image,
+      p.description,
+      p.in_stock AS inStock
+     FROM products p
+     INNER JOIN categories c ON c.id = p.category_id
+     ORDER BY p.created_at DESC, p.id ASC`,
   );
   return rows.map(mapProductRow);
 }
 
 export async function getProductById(id: string): Promise<Product | null> {
   const [rows] = await db.execute<ProductRow[]>(
-    `${productSelect} WHERE p.id = ? LIMIT 1`,
+    `SELECT
+      p.id,
+      p.name,
+      c.name AS category,
+      p.subcategory,
+      p.accessory_type AS accessoryType,
+      p.material,
+      p.closure_type AS closureType,
+      p.price,
+      p.image,
+      p.description,
+      p.in_stock AS inStock
+     FROM products p
+     INNER JOIN categories c ON c.id = p.category_id
+     WHERE p.id = ? LIMIT 1`,
     [id],
   );
   return rows[0] ? mapProductRow(rows[0]) : null;

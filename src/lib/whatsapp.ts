@@ -1,6 +1,7 @@
 import { materialLabels, type Product } from "@/lib/products";
 
-export const WHATSAPP_BUSINESS_NUMBER = "59175764100";
+const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER?.trim() ?? "";
+let hasWarnedAboutMissingNumber = false;
 
 const bolivianCurrency = new Intl.NumberFormat("es-BO", {
   style: "currency",
@@ -8,22 +9,71 @@ const bolivianCurrency = new Intl.NumberFormat("es-BO", {
   maximumFractionDigits: 2,
 });
 
-export function createProductOrderMessage(product: Product): string {
+function getWhatsAppNumber(): string | null {
+  if (/^\d{8,15}$/.test(whatsappNumber)) {
+    return whatsappNumber;
+  }
+
+  if (
+    process.env.NODE_ENV === "development" &&
+    !hasWarnedAboutMissingNumber
+  ) {
+    console.warn(
+      "Configura NEXT_PUBLIC_WHATSAPP_NUMBER con el número internacional sin + ni espacios para habilitar los enlaces de WhatsApp.",
+    );
+    hasWarnedAboutMissingNumber = true;
+  }
+
+  return null;
+}
+
+export function isWhatsAppConfigured(): boolean {
+  return getWhatsAppNumber() !== null;
+}
+
+function createWhatsAppUrl(message: string): string | null {
+  const number = getWhatsAppNumber();
+  return number
+    ? `https://wa.me/${number}?text=${encodeURIComponent(message)}`
+    : null;
+}
+
+export function createProductOrderMessage(
+  product: Product,
+  productUrl: string,
+  isAvailabilityInquiry = false,
+): string {
   return [
-    "Hola, SARITA. 💖 Quiero hacer un pedido de esta joya:",
+    isAvailabilityInquiry
+      ? "Hola, SARITA. 💖 Quisiera consultar la disponibilidad de esta joya:"
+      : "Hola, SARITA. 💖 Me interesa esta joya:",
     "",
     `✨ Producto: ${product.name}`,
-    `💰 Precio: ${bolivianCurrency.format(product.price)}`,
     `💎 Categoría: ${product.category}`,
-    `🏷️ Marca o material: ${materialLabels[product.material]}`,
+    `🏷️ Material: ${materialLabels[product.material]}`,
+    `💰 Precio: ${bolivianCurrency.format(product.price)}`,
+    `🔗 Enlace: ${productUrl}`,
     "",
-    "¿Podrían confirmarme su disponibilidad y cómo realizar el pedido?",
+    isAvailabilityInquiry
+      ? "¿Podrían confirmarme si está disponible?"
+      : "¿Podrían darme más información sobre este producto?",
     "",
     "¡Muchas gracias!",
   ].join("\n");
 }
 
-export function createProductOrderUrl(product: Product): string {
-  const message = createProductOrderMessage(product);
-  return `https://wa.me/${WHATSAPP_BUSINESS_NUMBER}?text=${encodeURIComponent(message)}`;
+export function createProductOrderUrl(
+  product: Product,
+  productUrl: string,
+  isAvailabilityInquiry = false,
+): string | null {
+  return createWhatsAppUrl(
+    createProductOrderMessage(product, productUrl, isAvailabilityInquiry),
+  );
+}
+
+export function createGeneralInquiryUrl(): string | null {
+  return createWhatsAppUrl(
+    "Hola, SARITA. 💖 Quisiera recibir más información sobre sus joyas y accesorios.",
+  );
 }

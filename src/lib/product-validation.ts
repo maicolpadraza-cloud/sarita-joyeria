@@ -1,12 +1,8 @@
+import { z } from "zod";
 import {
-  categories,
-  materialLabels,
-  type ClosureType,
-  type MasculineAccessoryType,
   type Product,
   type ProductCategory,
   type ProductMaterial,
-  type ProductSubcategory,
 } from "@/lib/products";
 
 export type ProductInput = Omit<Product, "id"> & { id?: string };
@@ -18,43 +14,105 @@ export class ProductValidationError extends Error {
   }
 }
 
-const validMaterials = Object.keys(materialLabels);
-const validAccessoryTypes: MasculineAccessoryType[] = [
-  "Cadenas",
-  "Pulseras",
+const productCategories = [
+  "Aritos",
+  "Argollas",
+  "Collares",
+  "Dijes",
+  "Rosarios",
   "Anillos",
+  "Pulseras",
+  "Piercings",
+  "Titanio",
+  "Conjuntos",
+  "Relojes",
+  "Carteras",
   "Billeteras",
-];
-const validClosureTypes: ClosureType[] = [
-  "Mariposa",
-  "Tapa Plana",
-  "Argolla",
-];
-const maxImageLength = 700 * 1024;
+  "Mini joyeros",
+  "Varones",
+  "Tobilleras",
+] as const satisfies readonly ProductCategory[];
+const productMaterials = [
+  "Xuping",
+  "Magold",
+  "Folleado",
+  "Acero",
+  "Titanio",
+  "Artesanal",
+  "Cuero sintético",
+] as const satisfies readonly ProductMaterial[];
+const accessoryTypes = ["Cadenas", "Pulseras", "Anillos", "Billeteras"] as const;
+const closureTypes = ["Mariposa", "Tapa Plana", "Argolla"] as const;
+const productSubcategories = ["Iniciales"] as const;
+const maxProductPrice = 99_999_999.99;
+
+const imageUrlSchema = z
+  .string()
+  .min(1)
+  .max(2048)
+  .refine((value) => {
+    if (/[\u0000-\u0020"'<>`\\]/.test(value)) {
+      return false;
+    }
+
+    if (value.startsWith("/") && !value.startsWith("//")) {
+      try {
+        return (
+          new URL(value, "https://sarita.invalid").origin ===
+          "https://sarita.invalid"
+        );
+      } catch {
+        return false;
+      }
+    }
+
+    try {
+      const url = new URL(value);
+      return (
+        url.protocol === "https:" &&
+        url.hostname === "images.unsplash.com" &&
+        url.port === "" &&
+        url.username === "" &&
+        url.password === ""
+      );
+    } catch {
+      return false;
+    }
+  }, "La imagen debe ser una ruta del sitio o una URL HTTPS de images.unsplash.com.");
+
+export function isAllowedProductImageUrl(value: string): boolean {
+  return imageUrlSchema.safeParse(value).success;
+}
+
+export const productInputSchema = z
+  .object({
+    id: z.string().trim().min(1).max(64).optional(),
+    name: z.string().trim().min(1).max(150),
+    category: z.enum(productCategories),
+    subcategory: z.enum(productSubcategories).optional(),
+    accessoryType: z.enum(accessoryTypes).optional(),
+    material: z.enum(productMaterials),
+    closureType: z.enum(closureTypes).optional(),
+    price: z
+      .number()
+      .finite()
+      .min(0)
+      .max(maxProductPrice)
+      .refine((value) => Number(value.toFixed(2)) === value),
+    image: imageUrlSchema,
+    description: z.string().max(300),
+    inStock: z.boolean(),
+  })
+  .strict();
+
+export const productIdSchema = z.string().trim().min(1).max(64);
 
 export function isProductCategory(value: unknown): value is ProductCategory {
-  return categories.slice(1).some((category) => category === value);
+  return productCategories.some((category) => category === value);
 }
 
 export function isProductMaterial(value: unknown): value is ProductMaterial {
-  return validMaterials.some((material) => material === value);
-}
-
-export function isProductSubcategory(
-  value: unknown,
-  category: unknown,
-): value is ProductSubcategory {
-  return category === "Dijes" && value === "Iniciales";
-}
-
-export function isMasculineAccessoryType(
-  value: unknown,
-): value is MasculineAccessoryType {
-  return validAccessoryTypes.some((type) => type === value);
-}
-
-export function isClosureType(value: unknown): value is ClosureType {
-  return validClosureTypes.some((type) => type === value);
+  return productMaterials.some((material) => material === value);
 }
 
 export function validateProductInput(
@@ -69,107 +127,20 @@ export function validateProductInput(
   value: unknown,
   options: { requireId?: boolean } = {},
 ): ProductInput | Product {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new ProductValidationError("El cuerpo del producto debe ser un objeto.");
-  }
-
-  const input = value as Record<string, unknown>;
-  const id = input.id;
-  const name = input.name;
-  const category = input.category;
-  const material = input.material;
-  const subcategory = input.subcategory;
-  const accessoryType = input.accessoryType;
-  const closureType = input.closureType;
-  const price = input.price;
-  const image = input.image;
-  const description = input.description;
-  const inStock = input.inStock;
-
-  if (
-    options.requireId &&
-    (typeof id !== "string" || id.trim().length === 0 || id.length > 64)
-  ) {
+  const parsed = productInputSchema.safeParse(value);
+  if (!parsed.success) {
     throw new ProductValidationError(
-      "El identificador debe ser un texto de hasta 64 caracteres.",
-    );
-  }
-  if (
-    id !== undefined &&
-    (typeof id !== "string" || id.trim().length === 0 || id.length > 64)
-  ) {
-    throw new ProductValidationError(
-      "El identificador debe ser un texto de hasta 64 caracteres.",
-    );
-  }
-  if (
-    typeof name !== "string" ||
-    name.trim().length === 0 ||
-    name.length > 150
-  ) {
-    throw new ProductValidationError(
-      "El nombre es obligatorio y no puede superar los 150 caracteres.",
-    );
-  }
-  if (!isProductCategory(category)) {
-    throw new ProductValidationError("La categoría seleccionada no es válida.");
-  }
-  if (!isProductMaterial(material)) {
-    throw new ProductValidationError("El material seleccionado no es válido.");
-  }
-  if (
-    subcategory !== undefined &&
-    !isProductSubcategory(subcategory, category)
-  ) {
-    throw new ProductValidationError("La subcategoría seleccionada no es válida.");
-  }
-  if (
-    accessoryType !== undefined &&
-    !isMasculineAccessoryType(accessoryType)
-  ) {
-    throw new ProductValidationError(
-      "El tipo de accesorio seleccionado no es válido.",
-    );
-  }
-  if (closureType !== undefined && !isClosureType(closureType)) {
-    throw new ProductValidationError("El tipo de cierre seleccionado no es válido.");
-  }
-  if (typeof price !== "number" || !Number.isFinite(price) || price < 0) {
-    throw new ProductValidationError(
-      "El precio debe ser un número mayor o igual a cero.",
-    );
-  }
-  if (typeof image !== "string" || image.length > maxImageLength) {
-    throw new ProductValidationError(
-      "La imagen debe ser un texto válido y no superar aproximadamente 700 KB.",
-    );
-  }
-  if (typeof description !== "string") {
-    throw new ProductValidationError("La descripción debe ser un texto.");
-  }
-  if (typeof inStock !== "boolean") {
-    throw new ProductValidationError(
-      "El estado de disponibilidad debe ser verdadero o falso.",
+      parsed.error.issues[0]?.message ?? "Los datos del producto no son válidos.",
     );
   }
 
-  const product: ProductInput = {
-    name,
-    category,
-    material,
-    price,
-    image,
-    description,
-    inStock,
-    ...(id === undefined ? {} : { id }),
-    ...(subcategory === undefined ? {} : { subcategory }),
-    ...(accessoryType === undefined ? {} : { accessoryType }),
-    ...(closureType === undefined ? {} : { closureType }),
-  };
+  const id = parsed.data.id;
+  if (options.requireId && !id) {
+    throw new ProductValidationError("El identificador del producto no es válido.");
+  }
 
   if (options.requireId) {
-    return { ...product, id: id as string };
+    return { ...parsed.data, id };
   }
-
-  return product;
+  return parsed.data;
 }

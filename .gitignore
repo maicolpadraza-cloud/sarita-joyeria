@@ -32,6 +32,7 @@ yarn-error.log*
 
 # environment files and secrets
 .env*
+!.env.example
 
 # vercel
 .vercel

@@ -1,4 +1,5 @@
 -- Phase 1 for public.productos(categoria).
+-- Historical Supabase migration; it is not used by the current MySQL backend.
 -- Run this script by itself in the Supabase SQL Editor and let it commit before
 -- running 20261022_split_product_categories_phase2.sql.
 -- Adds split labels to an ENUM and temporarily allows both old and new labels

@@ -12,11 +12,11 @@ import {
   materialLabels,
   materialBadgeLabels,
   materialsByCategory,
-  products,
   type MasculineAccessoryType,
   type Product,
   type ProductMaterial,
 } from "@/lib/products";
+import { isAllowedProductImageUrl } from "@/lib/product-validation";
 import {
   PRODUCTS_UPDATED_EVENT,
   readProducts,
@@ -56,8 +56,14 @@ type HomePageProps = {
 
 export default function HomePage({ initialFilters }: HomePageProps) {
   const [showSplash, setShowSplash] = useState(true);
-  const [catalogProducts, setCatalogProducts] = useState<Product[]>(products);
+  const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
   const [catalogError, setCatalogError] = useState("");
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [priceOrder, setPriceOrder] = useState<"default" | "asc" | "desc">(
+    "default",
+  );
   const [selectedCategory, setSelectedCategory] =
     useState<(typeof categories)[number]>(initialFilters.category);
   const [selectedMaterial, setSelectedMaterial] =
@@ -82,21 +88,31 @@ export default function HomePage({ initialFilters }: HomePageProps) {
       } catch (apiError) {
         if (!isMounted || currentRequest !== requestVersion) return;
 
-        try {
-          setCatalogProducts(readProducts());
-          const apiMessage =
-            apiError instanceof Error
-              ? apiError.message
-              : "No se pudo conectar con el catálogo.";
-          setCatalogError(
-            `${apiMessage} Se muestran los productos guardados en este dispositivo.`,
-          );
-        } catch (storageError) {
-          const storageMessage =
-            storageError instanceof Error
-              ? storageError.message
-              : "No se pudieron cargar los productos guardados.";
-          setCatalogError(`${storageMessage} No se pudo consultar el catálogo en MySQL.`);
+        const apiMessage =
+          apiError instanceof Error
+            ? apiError.message
+            : "No se pudo conectar con el catálogo.";
+        if (process.env.NODE_ENV === "development") {
+          try {
+            setCatalogProducts(readProducts());
+            setCatalogError(
+              `${apiMessage} Se muestran los productos guardados localmente (solo desarrollo).`,
+            );
+          } catch (storageError) {
+            const storageMessage =
+              storageError instanceof Error
+                ? storageError.message
+                : "No se pudieron cargar los productos guardados.";
+            setCatalogProducts([]);
+            setCatalogError(`${apiMessage} ${storageMessage}`);
+          }
+        } else {
+          setCatalogProducts([]);
+          setCatalogError(apiMessage);
+        }
+      } finally {
+        if (isMounted && currentRequest === requestVersion) {
+          setCatalogLoading(false);
         }
       }
     };
@@ -111,7 +127,7 @@ export default function HomePage({ initialFilters }: HomePageProps) {
       window.removeEventListener(PRODUCTS_UPDATED_EVENT, refreshProducts);
       window.removeEventListener("storage", refreshProducts);
     };
-  }, []);
+  }, [reloadKey]);
   const visibleMaterialFilters =
     selectedCategory === "Todos"
       ? materialFilters
@@ -127,8 +143,14 @@ export default function HomePage({ initialFilters }: HomePageProps) {
           }
           return categoryMaterials.includes(filter.value);
         });
-  const filteredProducts = catalogProducts.filter(
-    (product) =>
+  const normalizedSearch = searchQuery
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("es")
+    .trim();
+  const filteredProducts = catalogProducts
+    .filter(
+      (product) =>
       (selectedCategory === "Todos" ||
         product.category === selectedCategory) &&
       (selectedCategory !== "Dijes" ||
@@ -137,8 +159,19 @@ export default function HomePage({ initialFilters }: HomePageProps) {
       (selectedCategory !== "Varones" ||
         selectedAccessoryType === null ||
         product.accessoryType === selectedAccessoryType) &&
-      (selectedMaterial === null || product.material === selectedMaterial),
-  );
+        (selectedMaterial === null || product.material === selectedMaterial) &&
+        (normalizedSearch.length === 0 ||
+          product.name
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLocaleLowerCase("es")
+            .includes(normalizedSearch)),
+    )
+    .sort((left, right) => {
+      if (priceOrder === "asc") return left.price - right.price;
+      if (priceOrder === "desc") return right.price - left.price;
+      return 0;
+    });
   const getProductHref = (product: Product) => {
     const params = new URLSearchParams({ category: selectedCategory });
     if (selectedMaterial) params.set("material", selectedMaterial);
@@ -248,12 +281,22 @@ export default function HomePage({ initialFilters }: HomePageProps) {
           className="mx-auto w-full max-w-[1400px] bg-[#FCF7F4] px-4 py-14 max-[639px]:px-3 max-[639px]:py-10 sm:px-6 sm:py-16 lg:px-8 lg:py-20"
         >
           {catalogError && (
-            <p
-              className="mb-6 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800"
+            <div
+              className="mb-6 flex flex-col gap-3 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between"
               role="alert"
             >
-              {catalogError}
-            </p>
+              <p>{catalogError}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setCatalogLoading(true);
+                  setReloadKey((current) => current + 1);
+                }}
+                className="min-h-11 shrink-0 rounded-lg border border-red-300 px-4 font-medium hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+              >
+                Reintentar
+              </button>
+            </div>
           )}
           <div className="mb-8 flex flex-col justify-between gap-4 border-b border-[#EADDD7] pb-6 max-[639px]:mb-6 max-[639px]:flex-row max-[639px]:items-end max-[639px]:gap-3 max-[639px]:pb-5 sm:mb-9 sm:flex-row sm:items-end sm:gap-6 sm:pb-7">
             <div>
@@ -315,7 +358,7 @@ export default function HomePage({ initialFilters }: HomePageProps) {
                   type="button"
                   aria-pressed={selectedAccessoryType === filter.value}
                   onClick={() => setSelectedAccessoryType(filter.value)}
-                  className={`min-h-8 rounded-full border px-4 py-1.5 text-xs font-medium tracking-wide transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A7794F] motion-reduce:transition-none max-[639px]:min-h-10 max-[639px]:px-3 max-[639px]:py-2 max-[639px]:text-[11px] ${
+                  className={`min-h-11 rounded-full border px-4 py-1.5 text-xs font-medium tracking-wide transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A7794F] motion-reduce:transition-none max-[639px]:px-3 max-[639px]:py-2 max-[639px]:text-[11px] ${
                     selectedAccessoryType === filter.value
                       ? "border-[#301C18] bg-[#301C18] text-[#FCF7F4]"
                       : "border-[#EADDD7] bg-[#F9EFEB] text-[#765B50] hover:border-[#D9C4B9] hover:bg-[#F5E8E3]"
@@ -353,7 +396,7 @@ export default function HomePage({ initialFilters }: HomePageProps) {
                     }
                     setSelectedDijeSubcategory(filter.value);
                   }}
-                  className={`min-h-8 rounded-full border px-4 py-1.5 text-xs font-medium tracking-wide transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A7794F] motion-reduce:transition-none max-[639px]:min-h-10 max-[639px]:px-3 max-[639px]:py-2 max-[639px]:text-[11px] ${
+                  className={`min-h-11 rounded-full border px-4 py-1.5 text-xs font-medium tracking-wide transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A7794F] motion-reduce:transition-none max-[639px]:px-3 max-[639px]:py-2 max-[639px]:text-[11px] ${
                     selectedDijeSubcategory === filter.value
                       ? "border-[#301C18] bg-[#301C18] text-[#FCF7F4]"
                       : "border-[#EADDD7] bg-[#F9EFEB] text-[#765B50] hover:border-[#D9C4B9] hover:bg-[#F5E8E3]"
@@ -366,7 +409,7 @@ export default function HomePage({ initialFilters }: HomePageProps) {
           )}
 
           <div
-            className="mt-4 mb-8 flex flex-wrap gap-2 max-[639px]:mt-3 max-[639px]:mb-6 max-[639px]:gap-x-1.5 max-[639px]:gap-y-1.5"
+            className="mt-4 flex flex-wrap gap-2 max-[639px]:mt-3 max-[639px]:gap-x-1.5 max-[639px]:gap-y-1.5"
             aria-label="Filtrar por material o colección"
           >
             {visibleMaterialFilters.map((filter) => (
@@ -375,7 +418,7 @@ export default function HomePage({ initialFilters }: HomePageProps) {
                 type="button"
                 aria-pressed={selectedMaterial === filter.value}
                 onClick={() => setSelectedMaterial(filter.value)}
-                className={`min-h-8 rounded-full border px-4 py-1.5 text-xs font-medium tracking-wide transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A7794F] motion-reduce:transition-none max-[639px]:min-h-10 max-[639px]:px-3 max-[639px]:py-2 max-[639px]:text-[11px] ${
+                className={`min-h-11 rounded-full border px-4 py-1.5 text-xs font-medium tracking-wide transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A7794F] motion-reduce:transition-none max-[639px]:px-3 max-[639px]:py-2 max-[639px]:text-[11px] ${
                   selectedMaterial === filter.value
                     ? "border-[#301C18] bg-[#301C18] text-[#FCF7F4]"
                     : "border-[#EADDD7] bg-[#F9EFEB] text-[#765B50] hover:border-[#D9C4B9] hover:bg-[#F5E8E3]"
@@ -391,11 +434,58 @@ export default function HomePage({ initialFilters }: HomePageProps) {
             ))}
           </div>
 
+          <div className="mb-8 mt-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_16rem] sm:items-end">
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-medium text-[#765B50]">
+                Buscar por nombre
+              </span>
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Ej. collar, aritos..."
+                className="min-h-12 w-full rounded-xl border border-[#EADDD7] bg-white px-4 text-sm text-[#301C18] outline-none placeholder:text-[#9C8980] focus:border-[#A7794F] focus:ring-2 focus:ring-[#A7794F]/20"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-medium text-[#765B50]">
+                Ordenar por precio
+              </span>
+              <select
+                value={priceOrder}
+                onChange={(event) =>
+                  setPriceOrder(event.target.value as typeof priceOrder)
+                }
+                className="min-h-12 w-full rounded-xl border border-[#EADDD7] bg-white px-4 text-sm text-[#301C18] outline-none focus:border-[#A7794F] focus:ring-2 focus:ring-[#A7794F]/20"
+              >
+                <option value="default">Orden recomendado</option>
+                <option value="asc">Precio: menor a mayor</option>
+                <option value="desc">Precio: mayor a menor</option>
+              </select>
+            </label>
+          </div>
+
           <div
             id="productos"
+            aria-busy={catalogLoading}
             className="grid grid-cols-2 gap-x-3 gap-y-8 max-[639px]:gap-y-7 sm:gap-x-5 sm:gap-y-9 lg:grid-cols-3 lg:gap-x-6 lg:gap-y-10 xl:grid-cols-4"
           >
-            {filteredProducts.map((product) => (
+            {catalogLoading &&
+              Array.from({ length: 8 }, (_, index) => (
+                <article
+                  key={`skeleton-${index}`}
+                  className="min-w-0 animate-pulse motion-reduce:animate-none"
+                  aria-hidden="true"
+                >
+                  <div className="aspect-square rounded-xl bg-[#EADDD7] sm:rounded-2xl" />
+                  <div className="space-y-2 px-0.5 pt-3 sm:px-1 sm:pt-4">
+                    <div className="h-3 w-2/3 rounded bg-[#EADDD7]" />
+                    <div className="h-4 w-full rounded bg-[#EADDD7]" />
+                    <div className="h-4 w-1/3 rounded bg-[#EADDD7]" />
+                  </div>
+                </article>
+              ))}
+            {!catalogLoading && filteredProducts.map((product) => (
               <article
                 key={product.id}
                 className="group min-w-0 motion-safe:transition-transform motion-safe:duration-300 motion-safe:hover:-translate-y-0.5 motion-reduce:transition-none"
@@ -407,7 +497,11 @@ export default function HomePage({ initialFilters }: HomePageProps) {
                 >
                   <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-[#F9EFEB] sm:rounded-2xl">
                     <Image
-                      src={product.image}
+                      src={
+                        isAllowedProductImageUrl(product.image)
+                          ? product.image
+                          : "/logo-luna.png"
+                      }
                       aria-label={product.name}
                       alt={product.name}
                       width={900}
@@ -450,10 +544,15 @@ export default function HomePage({ initialFilters }: HomePageProps) {
               </article>
             ))}
           </div>
-          {filteredProducts.length === 0 && (
-            <p className="py-16 text-center font-serif text-xl text-darkBrown/65">
-              No encontramos productos para estos filtros.
-            </p>
+          {!catalogLoading && !catalogError && filteredProducts.length === 0 && (
+            <div className="py-16 text-center">
+              <p className="font-serif text-xl text-darkBrown/75">
+                No encontramos productos para esta búsqueda.
+              </p>
+              <p className="mt-2 text-sm text-[#765B50]">
+                Prueba con otra categoría, material o nombre.
+              </p>
+            </div>
           )}
         </section>
 
