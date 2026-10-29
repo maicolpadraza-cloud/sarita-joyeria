@@ -75,7 +75,36 @@ npm run seed
 
 El comando exige `DB_SSL=true` y usa TLS 1.2 como mínimo con verificación
 del certificado. La API solo acepta imágenes como ruta local (por ejemplo
-`/images/joya.jpg`) o URL HTTPS de `images.unsplash.com`.
+`/images/joya.jpg`), URL HTTPS de `images.unsplash.com` o de
+`ik.imagekit.io/sxvg5dlmq`.
+
+## Fotos de productos con ImageKit
+
+El panel `/admin` permite seleccionar fotos desde computadora o celular
+(cámara o galería). Acepta JPEG, PNG, WebP y HEIC; convierte HEIC y prepara la
+imagen en el navegador (lado largo máximo de 2400 px, calidad alta y objetivo
+menor a 1,5 MB) antes de subirla directamente a ImageKit. La clave privada
+solo se usa en el servidor; configura `NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT`,
+`NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY` e `IMAGEKIT_PRIVATE_KEY` en `.env.local` y
+en las variables de entorno de Vercel. No guardes las imágenes en MySQL: allí
+solo se conservan la URL y el identificador de archivo necesario para poder
+borrar de ImageKit al reemplazar o eliminar un producto.
+
+Para instalaciones existentes, agrega la columna antes de desplegar:
+
+```sql
+ALTER TABLE products
+  ADD COLUMN imagekit_file_id VARCHAR(128) NULL,
+  ADD KEY idx_products_imagekit_file_id (imagekit_file_id);
+```
+
+Para instalaciones nuevas, la columna ya está en `database/schema.sql`. El
+contador del panel estima el espacio de la carpeta `/sarita/productos` y avisa
+al superar el 70 % de la referencia de 5 GB.
+
+Para preparar la foto, encuadra la joya en relación 1:1 o 4:5, usa un fondo
+limpio y luz natural indirecta. Deja espacio alrededor para que el recorte
+cuadrado del catálogo no corte la pieza.
 
 Las respuestas incluyen CSP, protección contra framing y MIME sniffing,
 Referrer-Policy y Permissions-Policy; en producción también activan HSTS.

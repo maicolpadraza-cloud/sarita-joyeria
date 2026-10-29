@@ -10,26 +10,30 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import Image from "next/image";
+import { upload as uploadToImageKit } from "@imagekit/next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   useEffect,
   useRef,
   useState,
+  type ChangeEvent,
   type FormEvent,
 } from "react";
+import ProductImage from "@/components/ProductImage";
 import {
   categories,
   categoryMaterialOptions,
   materialLabels,
   type ClosureType,
+  type AdminProduct,
   type MasculineAccessoryType,
   type Product,
   type ProductCategory,
   type ProductMaterial,
   type ProductSubcategory,
 } from "@/lib/products";
+import { prepareProductImage } from "@/lib/prepare-product-image";
 import { isAllowedProductImageUrl } from "@/lib/product-validation";
 import {
   PRODUCTS_UPDATED_EVENT,
@@ -38,6 +42,7 @@ import {
 } from "@/lib/product-storage";
 import {
   fetchProducts,
+  deletePendingImageKitFile,
   ProductsApiError,
   removeProduct as removeProductApi,
   saveProduct,
@@ -54,7 +59,46 @@ const masculineAccessoryTypes: MasculineAccessoryType[] = [
   "Anillos",
   "Billeteras",
 ];
-type ProductDraft = Omit<Product, "id">;
+type ProductDraft = Omit<AdminProduct, "id">;
+
+interface ImageKitStorageUsage {
+  usedBytes: number;
+  limitBytes: number;
+}
+
+async function fetchImageKitStorageUsage(): Promise<ImageKitStorageUsage> {
+  const response = await fetch("/api/imagekit/usage", {
+    cache: "no-store",
+    signal: AbortSignal.timeout(10_000),
+  });
+  const payload: unknown = await response.json();
+  if (!response.ok) {
+    const message =
+      typeof payload === "object" &&
+      payload !== null &&
+      "error" in payload &&
+      typeof payload.error === "string"
+        ? payload.error
+        : "No se pudo consultar el espacio de imágenes.";
+    throw new Error(message);
+  }
+  if (
+    typeof payload !== "object" ||
+    payload === null ||
+    !("usedBytes" in payload) ||
+    !("limitBytes" in payload) ||
+    typeof payload.usedBytes !== "number" ||
+    typeof payload.limitBytes !== "number"
+  ) {
+    throw new Error("La API devolvió un espacio de imágenes inválido.");
+  }
+  return { usedBytes: payload.usedBytes, limitBytes: payload.limitBytes };
+}
+
+function formatStorageSize(bytes: number): string {
+  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+  return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+}
 
 function createEmptyDraft(): ProductDraft {
   return {
@@ -75,14 +119,38 @@ const inputClassName =
 
 export default function AdminPage() {
   const router = useRouter();
-  const [items, setItems] = useState<Product[]>([]);
+  const [items, setItems] = useState<AdminProduct[]>([]);
   const [draft, setDraft] = useState<ProductDraft>(createEmptyDraft);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [isReady, setIsReady] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState("");
+  const [preparedImageSize, setPreparedImageSize] = useState<number | null>(
+    null,
+  );
+  const [imageKitUsage, setImageKitUsage] =
+    useState<ImageKitStorageUsage | null>(null);
+  const [imageKitUsageError, setImageKitUsageError] = useState("");
   const ignoreNextProductUpdateEvent = useRef(false);
+  const pendingImageKitFileId = useRef<string | null>(null);
+  const previewObjectUrl = useRef<string | null>(null);
+
+  async function refreshImageKitUsage() {
+    try {
+      const usage = await fetchImageKitStorageUsage();
+      setImageKitUsage(usage);
+      setImageKitUsageError("");
+    } catch (usageError) {
+      setImageKitUsageError(
+        usageError instanceof Error
+          ? usageError.message
+          : "No se pudo consultar el espacio de imágenes.",
+      );
+    }
+  }
 
   async function handleLogout() {
     setError("");
@@ -164,6 +232,30 @@ export default function AdminPage() {
       requestVersion++;
       window.removeEventListener(PRODUCTS_UPDATED_EVENT, refreshProducts);
       window.removeEventListener("storage", refreshProducts);
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    fetchImageKitStorageUsage()
+      .then((usage) => {
+        if (active) setImageKitUsage(usage);
+      })
+      .catch((usageError: unknown) => {
+        if (!active) return;
+        setImageKitUsageError(
+          usageError instanceof Error
+            ? usageError.message
+            : "No se pudo consultar el espacio de imágenes.",
+        );
+      });
+
+    return () => {
+      active = false;
+      if (previewObjectUrl.current) {
+        URL.revokeObjectURL(previewObjectUrl.current);
+      }
     };
   }, []);
 
@@ -273,9 +365,150 @@ export default function AdminPage() {
   }
 
   function resetForm() {
+    const pendingFileId = pendingImageKitFileId.current;
+    pendingImageKitFileId.current = null;
+    if (pendingFileId) {
+      deletePendingImageKitFile(pendingFileId).catch((cleanupError: unknown) => {
+        setError(
+          cleanupError instanceof Error
+            ? `No se pudo limpiar la foto pendiente de ImageKit: ${cleanupError.message}`
+            : "No se pudo limpiar la foto pendiente de ImageKit.",
+        );
+      });
+    }
+    if (previewObjectUrl.current) {
+      URL.revokeObjectURL(previewObjectUrl.current);
+      previewObjectUrl.current = null;
+    }
+    setImagePreviewUrl("");
+    setPreparedImageSize(null);
     setDraft(createEmptyDraft());
     setEditingId(null);
     setNotice("");
+  }
+
+  async function handleImageFileChange(
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    const previousImage = draft.image;
+    const previousFileId = draft.imageKitFileId;
+    const previousPendingFileId = pendingImageKitFileId.current;
+    const previousPreviewUrl = imagePreviewUrl;
+    const previousPreparedImageSize = preparedImageSize;
+    setError("");
+    setNotice("");
+    setIsUploadingImage(true);
+
+    try {
+      const preparedImage = await prepareProductImage(file);
+      const localPreview = URL.createObjectURL(preparedImage);
+      if (previewObjectUrl.current) {
+        URL.revokeObjectURL(previewObjectUrl.current);
+      }
+      previewObjectUrl.current = localPreview;
+      setImagePreviewUrl(localPreview);
+      setPreparedImageSize(preparedImage.size);
+      setDraft((current) => ({
+        ...current,
+        image: "",
+        imageKitFileId: undefined,
+      }));
+
+      const authResponse = await fetch("/api/imagekit/auth", {
+        method: "POST",
+        cache: "no-store",
+        signal: AbortSignal.timeout(10_000),
+      });
+      const authPayload: unknown = await authResponse.json();
+      if (
+        !authResponse.ok ||
+        typeof authPayload !== "object" ||
+        authPayload === null ||
+        !("token" in authPayload) ||
+        !("signature" in authPayload) ||
+        !("expire" in authPayload) ||
+        !("publicKey" in authPayload) ||
+        typeof authPayload.token !== "string" ||
+        typeof authPayload.signature !== "string" ||
+        typeof authPayload.expire !== "number" ||
+        typeof authPayload.publicKey !== "string"
+      ) {
+        const message =
+          typeof authPayload === "object" &&
+          authPayload !== null &&
+          "error" in authPayload &&
+          typeof authPayload.error === "string"
+            ? authPayload.error
+            : "No se pudo preparar la carga segura de la foto.";
+        throw new Error(message);
+      }
+
+      const extension =
+        preparedImage.type === "image/webp" ? ".webp" : ".jpg";
+      const uploadedImage = await uploadToImageKit({
+        file: preparedImage,
+        fileName: `${crypto.randomUUID()}${extension}`,
+        folder: "/sarita/productos",
+        useUniqueFileName: false,
+        token: authPayload.token,
+        signature: authPayload.signature,
+        expire: authPayload.expire,
+        publicKey: authPayload.publicKey,
+      });
+      if (!uploadedImage.fileId || !uploadedImage.url) {
+        throw new Error("ImageKit no confirmó la carga de la foto.");
+      }
+
+      pendingImageKitFileId.current = uploadedImage.fileId;
+      if (
+        previousPendingFileId &&
+        previousPendingFileId !== uploadedImage.fileId
+      ) {
+        try {
+          await deletePendingImageKitFile(previousPendingFileId);
+        } catch (cleanupError) {
+          setError(
+            cleanupError instanceof Error
+              ? `La nueva foto se subió, pero no se pudo limpiar la foto pendiente anterior: ${cleanupError.message}`
+              : "La nueva foto se subió, pero no se pudo limpiar la foto pendiente anterior.",
+          );
+        }
+      }
+      setDraft((current) => ({
+        ...current,
+        image: uploadedImage.url!,
+        imageKitFileId: uploadedImage.fileId!,
+      }));
+      setImagePreviewUrl(uploadedImage.url);
+      if (previewObjectUrl.current) {
+        URL.revokeObjectURL(previewObjectUrl.current);
+        previewObjectUrl.current = null;
+      }
+      await refreshImageKitUsage();
+    } catch (uploadError) {
+      setDraft((current) => ({
+        ...current,
+        image: previousImage,
+        imageKitFileId: previousFileId,
+      }));
+      if (previewObjectUrl.current) {
+        URL.revokeObjectURL(previewObjectUrl.current);
+        previewObjectUrl.current = null;
+      }
+      setImagePreviewUrl(previousPreviewUrl);
+      setPreparedImageSize(previousPreparedImageSize);
+      setError(
+        uploadError instanceof Error
+          ? uploadError.message
+          : "No se pudo procesar ni subir la foto.",
+      );
+    } finally {
+      setIsUploadingImage(false);
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -288,7 +521,7 @@ export default function AdminPage() {
       return;
     }
 
-    const product: Product = {
+    const product: AdminProduct = {
       ...draft,
       id: editingId ?? crypto.randomUUID(),
       ...(draft.category === "Dijes" && draft.subcategory === "Iniciales"
@@ -305,16 +538,15 @@ export default function AdminPage() {
       : [product, ...items];
 
     try {
-      if (editingId) {
-        await updateProductApi(editingId, product);
-      } else {
-        await saveProduct(product);
-      }
-
+      const writeResult = editingId
+        ? await updateProductApi(editingId, product)
+        : await saveProduct(product);
+      pendingImageKitFileId.current = null;
       const syncWarning = await refreshProductsAfterWrite(nextItems);
       resetForm();
-      if (syncWarning) {
-        setError(syncWarning);
+      await refreshImageKitUsage();
+      if (writeResult.warning || syncWarning) {
+        setError(writeResult.warning ?? syncWarning ?? "");
       } else {
         setNotice(isEditing ? "Producto actualizado." : "Producto agregado.");
       }
@@ -354,7 +586,8 @@ export default function AdminPage() {
     }
   }
 
-  function startEditing(product: Product) {
+  function startEditing(product: AdminProduct) {
+    if (pendingImageKitFileId.current) resetForm();
     const { id, ...productDraft } = product;
     setEditingId(id);
     setDraft(productDraft);
@@ -363,22 +596,23 @@ export default function AdminPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  async function deleteProduct(product: Product) {
+  async function deleteProduct(product: AdminProduct) {
     if (!window.confirm(`¿Eliminar "${product.name}" del catálogo?`)) {
       return;
     }
 
     const nextItems = items.filter((item) => item.id !== product.id);
     try {
-      await removeProductApi(product.id);
+      const deleteWarning = await removeProductApi(product.id);
       const syncWarning = await refreshProductsAfterWrite(nextItems);
       if (editingId === product.id) resetForm();
-      if (syncWarning) {
-        setError(syncWarning);
+      if (deleteWarning || syncWarning) {
+        setError(deleteWarning ?? syncWarning ?? "");
       } else {
         setNotice("Producto eliminado.");
         setError("");
       }
+      await refreshImageKitUsage();
     } catch (saveError) {
       const message =
         saveError instanceof Error
@@ -650,8 +884,40 @@ export default function AdminPage() {
               </label>
 
               <div>
-                <label className="block text-xs font-medium" htmlFor="product-image">
-                  URL de la foto del producto
+                <label
+                  className="block text-xs font-medium"
+                  htmlFor="product-image-file"
+                >
+                  Foto del producto
+                </label>
+                <input
+                  id="product-image-file"
+                  className={inputClassName}
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.webp,.heic,.heif,image/jpeg,image/png,image/webp,image/heic,image/heif"
+                  onChange={handleImageFileChange}
+                  disabled={isUploadingImage}
+                />
+                <p className="mt-2 text-xs leading-5 text-darkBrown/55">
+                  JPEG, PNG, WebP o HEIC; máximo 15 MB. Se optimiza y se sube a
+                  ImageKit desde este dispositivo.
+                </p>
+                {isUploadingImage && (
+                  <p className="mt-2 text-xs font-medium text-warmBrown" role="status">
+                    Preparando y subiendo la foto…
+                  </p>
+                )}
+                {preparedImageSize !== null && (
+                  <p className="mt-2 text-xs text-darkBrown/60">
+                    Peso optimizado: {formatStorageSize(preparedImageSize)}
+                  </p>
+                )}
+
+                <label
+                  className="mt-4 block text-xs font-medium"
+                  htmlFor="product-image"
+                >
+                  O usa una URL permitida
                 </label>
                 <input
                   id="product-image"
@@ -659,24 +925,47 @@ export default function AdminPage() {
                   type="text"
                   inputMode="url"
                   value={draft.image}
-                  onChange={(event) =>
-                    setDraft({ ...draft, image: event.target.value })
-                  }
+                  onChange={(event) => {
+                    const pendingFileId = pendingImageKitFileId.current;
+                    pendingImageKitFileId.current = null;
+                    if (pendingFileId) {
+                      deletePendingImageKitFile(pendingFileId).catch(
+                        (cleanupError: unknown) => {
+                          setError(
+                            cleanupError instanceof Error
+                              ? `No se pudo limpiar la foto pendiente de ImageKit: ${cleanupError.message}`
+                              : "No se pudo limpiar la foto pendiente de ImageKit.",
+                          );
+                        },
+                      );
+                    }
+                    if (previewObjectUrl.current) {
+                      URL.revokeObjectURL(previewObjectUrl.current);
+                      previewObjectUrl.current = null;
+                    }
+                    setImagePreviewUrl("");
+                    setPreparedImageSize(null);
+                    setDraft({
+                      ...draft,
+                      image: event.target.value,
+                      imageKitFileId: undefined,
+                    });
+                  }}
                   maxLength={2048}
                   placeholder="https://images.unsplash.com/… o /images/joya.jpg"
                   required
                 />
                 <p className="mt-2 text-xs leading-5 text-darkBrown/55">
-                  Usa una ruta del sitio o una URL HTTPS de images.unsplash.com.
+                  Se aceptan rutas del sitio, images.unsplash.com o tu endpoint
+                  de ImageKit.
                 </p>
-                {isAllowedProductImageUrl(draft.image) && (
+                {(imagePreviewUrl || isAllowedProductImageUrl(draft.image)) && (
                   <div className="mt-3 flex items-center gap-3">
-                    <Image
-                      src={draft.image}
+                    <ProductImage
+                      src={imagePreviewUrl || draft.image}
                       alt={`Vista previa: ${draft.name || "producto"}`}
                       width={64}
                       height={80}
-                      unoptimized
                       className="h-20 w-16 rounded-lg object-cover"
                     />
                     <span className="text-xs text-darkBrown/60">
@@ -702,7 +991,7 @@ export default function AdminPage() {
                 <button
                   className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-darkBrown px-5 py-3 text-sm text-cream transition-colors hover:bg-warmBrown disabled:cursor-not-allowed disabled:opacity-50"
                   type="submit"
-                  disabled={!isReady}
+                  disabled={!isReady || isUploadingImage}
                 >
                   {editingId ? <Save size={16} /> : <PackagePlus size={16} />}
                   {editingId ? "Guardar cambios" : "Agregar al catálogo"}
@@ -727,6 +1016,17 @@ export default function AdminPage() {
                   Catálogo
                 </p>
                 <h2 className="mt-2 font-serif text-2xl">Joyas y accesorios</h2>
+                <p className="mt-2 text-xs text-darkBrown/60" aria-live="polite">
+                  {imageKitUsage
+                    ? `ImageKit · ${formatStorageSize(imageKitUsage.usedBytes)} de ${formatStorageSize(imageKitUsage.limitBytes)} aprox. en /sarita/productos`
+                    : imageKitUsageError || "Consultando espacio de imágenes…"}
+                </p>
+                {imageKitUsage &&
+                  imageKitUsage.usedBytes / imageKitUsage.limitBytes >= 0.7 && (
+                    <p className="mt-1 text-xs font-semibold text-amber-800" role="status">
+                      Advertencia: se superó el 70 % del espacio estimado de 5 GB.
+                    </p>
+                  )}
               </div>
               <span className="text-xs text-darkBrown/55">
                 {searchTerms.length > 0
@@ -771,22 +1071,17 @@ export default function AdminPage() {
                     key={product.id}
                     className="flex items-center gap-3 py-4 first:pt-0"
                   >
-                    {isAllowedProductImageUrl(product.image) ? (
-                      <Image
-                        src={product.image}
-                        alt={product.name}
-                        width={56}
-                        height={64}
-                        unoptimized
-                        className="h-16 w-14 shrink-0 rounded-lg object-cover"
-                      />
-                    ) : (
-                      <div
-                        className="h-16 w-14 shrink-0 rounded-lg bg-[#FDF8F5]"
-                        role="img"
-                        aria-label={`Imagen no disponible: ${product.name}`}
-                      />
-                    )}
+                    <ProductImage
+                      src={
+                        isAllowedProductImageUrl(product.image)
+                          ? product.image
+                          : "/logo-luna.png"
+                      }
+                      alt={product.name}
+                      width={56}
+                      height={64}
+                      className="h-16 w-14 shrink-0 rounded-lg object-cover"
+                    />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">
                         {product.name}

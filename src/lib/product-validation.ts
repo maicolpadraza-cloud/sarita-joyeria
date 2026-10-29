@@ -1,11 +1,15 @@
 import { z } from "zod";
 import {
   type Product,
+  type AdminProduct,
   type ProductCategory,
   type ProductMaterial,
 } from "@/lib/products";
 
-export type ProductInput = Omit<Product, "id"> & { id?: string };
+export type ProductInput = Omit<Product, "id"> & {
+  id?: string;
+  imageKitFileId?: string;
+};
 
 export class ProductValidationError extends Error {
   constructor(message: string) {
@@ -45,6 +49,26 @@ const accessoryTypes = ["Cadenas", "Pulseras", "Anillos", "Billeteras"] as const
 const closureTypes = ["Mariposa", "Tapa Plana", "Argolla"] as const;
 const productSubcategories = ["Iniciales"] as const;
 const maxProductPrice = 99_999_999.99;
+const imageKitEndpointPath = (() => {
+  const endpoint =
+    process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT ??
+    "https://ik.imagekit.io/sxvg5dlmq";
+  try {
+    const url = new URL(endpoint);
+    if (
+      url.protocol === "https:" &&
+      url.hostname === "ik.imagekit.io" &&
+      url.port === "" &&
+      url.username === "" &&
+      url.password === ""
+    ) {
+      return url.pathname.replace(/\/+$/, "");
+    }
+  } catch {
+    return "/sxvg5dlmq";
+  }
+  return "/sxvg5dlmq";
+})();
 
 const imageUrlSchema = z
   .string()
@@ -68,17 +92,25 @@ const imageUrlSchema = z
 
     try {
       const url = new URL(value);
-      return (
+      const isUnsplash =
         url.protocol === "https:" &&
         url.hostname === "images.unsplash.com" &&
         url.port === "" &&
         url.username === "" &&
-        url.password === ""
-      );
+        url.password === "";
+      const isImageKit =
+        url.protocol === "https:" &&
+        url.hostname === "ik.imagekit.io" &&
+        url.port === "" &&
+        url.username === "" &&
+        url.password === "" &&
+        (url.pathname === imageKitEndpointPath ||
+          url.pathname.startsWith(`${imageKitEndpointPath}/`));
+      return isUnsplash || isImageKit;
     } catch {
       return false;
     }
-  }, "La imagen debe ser una ruta del sitio o una URL HTTPS de images.unsplash.com.");
+  }, "La imagen debe ser una ruta del sitio o una URL HTTPS permitida.");
 
 export function isAllowedProductImageUrl(value: string): boolean {
   return imageUrlSchema.safeParse(value).success;
@@ -100,6 +132,7 @@ export const productInputSchema = z
       .max(maxProductPrice)
       .refine((value) => Number(value.toFixed(2)) === value),
     image: imageUrlSchema,
+    imageKitFileId: z.string().trim().min(1).max(128).optional(),
     description: z.string().max(300),
     inStock: z.boolean(),
   })
@@ -118,7 +151,7 @@ export function isProductMaterial(value: unknown): value is ProductMaterial {
 export function validateProductInput(
   value: unknown,
   options: { requireId: true },
-): Product;
+): AdminProduct;
 export function validateProductInput(
   value: unknown,
   options?: { requireId?: false },
@@ -126,7 +159,7 @@ export function validateProductInput(
 export function validateProductInput(
   value: unknown,
   options: { requireId?: boolean } = {},
-): ProductInput | Product {
+): ProductInput | AdminProduct {
   const parsed = productInputSchema.safeParse(value);
   if (!parsed.success) {
     throw new ProductValidationError(

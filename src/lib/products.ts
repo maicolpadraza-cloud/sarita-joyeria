@@ -49,6 +49,10 @@ export interface Product {
   inStock: boolean;
 }
 
+export interface AdminProduct extends Product {
+  imageKitFileId?: string;
+}
+
 export const categories = [
   "Todos",
   "Aritos",

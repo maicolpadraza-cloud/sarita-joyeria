@@ -1,13 +1,16 @@
 import {
+  isImageKitFileInUse,
   deleteProduct,
+  getImageKitFileId,
   getProductById,
   updateProduct,
 } from "@/lib/product-repository";
+import { deleteProductImage } from "@/lib/imagekit";
 import {
   productIdSchema,
   productInputSchema,
 } from "@/lib/product-validation";
-import type { Product } from "@/lib/products";
+import type { AdminProduct } from "@/lib/products";
 import { isAdminRequest } from "@/lib/admin-auth";
 import { parseJsonBody } from "@/lib/api-validation";
 
@@ -72,7 +75,8 @@ export async function PUT(
   const input = parsedBody.data;
 
   try {
-    const product: Product = { ...input, id: parsedId.data };
+    const previousImageKitFileId = await getImageKitFileId(parsedId.data);
+    const product: AdminProduct = { ...input, id: parsedId.data };
     const updatedProduct = await updateProduct(parsedId.data, product);
     if (!updatedProduct) {
       return Response.json(
@@ -81,7 +85,26 @@ export async function PUT(
       );
     }
 
-    return Response.json({ product: updatedProduct });
+    let warning: string | undefined;
+    if (
+      previousImageKitFileId &&
+      previousImageKitFileId !== input.imageKitFileId
+    ) {
+      try {
+        if (!(await isImageKitFileInUse(previousImageKitFileId))) {
+          await deleteProductImage(previousImageKitFileId);
+        }
+      } catch (error) {
+        console.error("No se pudo borrar la imagen reemplazada de ImageKit:", error);
+        warning =
+          "El producto se actualizó, pero no se pudo borrar la imagen anterior de ImageKit.";
+      }
+    }
+
+    return Response.json({
+      product: updatedProduct,
+      ...(warning ? { warning } : {}),
+    });
   } catch (error) {
     console.error("Error al actualizar el producto:", error);
     return Response.json(
@@ -112,6 +135,7 @@ export async function DELETE(
   }
 
   try {
+    const imageKitFileId = await getImageKitFileId(parsedId.data);
     const deleted = await deleteProduct(parsedId.data);
     if (!deleted) {
       return Response.json(
@@ -120,7 +144,20 @@ export async function DELETE(
       );
     }
 
-    return Response.json({ ok: true });
+    let warning: string | undefined;
+    if (imageKitFileId) {
+      try {
+        if (!(await isImageKitFileInUse(imageKitFileId))) {
+          await deleteProductImage(imageKitFileId);
+        }
+      } catch (error) {
+        console.error("No se pudo borrar la imagen del producto de ImageKit:", error);
+        warning =
+          "El producto se eliminó, pero no se pudo borrar su imagen de ImageKit.";
+      }
+    }
+
+    return Response.json({ ok: true, ...(warning ? { warning } : {}) });
   } catch (error) {
     console.error("Error al eliminar el producto:", error);
     return Response.json(

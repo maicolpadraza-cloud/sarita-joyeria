@@ -1,16 +1,19 @@
 import { randomUUID } from "node:crypto";
 import {
   createProduct,
+  getAdminProducts,
   getAllProducts,
 } from "@/lib/product-repository";
 import { productInputSchema } from "@/lib/product-validation";
-import type { Product } from "@/lib/products";
+import type { AdminProduct } from "@/lib/products";
 import { isAdminRequest } from "@/lib/admin-auth";
 import { parseJsonBody } from "@/lib/api-validation";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const products = await getAllProducts();
+    const products = await isAdminRequest(request)
+      ? await getAdminProducts()
+      : await getAllProducts();
     return Response.json({ products });
   } catch (error) {
     console.error("Error al consultar los productos:", error);
@@ -34,7 +37,7 @@ export async function POST(request: Request) {
   const input = parsedBody.data;
 
   try {
-    const product: Product = {
+    const product: AdminProduct = {
       ...input,
       id: input.id ?? randomUUID(),
     };

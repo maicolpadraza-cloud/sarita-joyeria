@@ -1,5 +1,10 @@
 import type { NextConfig } from "next";
 
+const imageKitEndpoint = new URL(
+  process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT ??
+    "https://ik.imagekit.io/sxvg5dlmq",
+);
+
 const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
@@ -10,9 +15,9 @@ const nextConfig: NextConfig = {
       "default-src 'self'",
       `script-src 'self' 'unsafe-inline'${isProduction ? "" : " 'unsafe-eval'"}`,
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' https://images.unsplash.com",
+      "img-src 'self' blob: https://images.unsplash.com https://ik.imagekit.io",
       "font-src 'self'",
-      `connect-src 'self'${isProduction ? "" : " ws://localhost:* http://localhost:* ws://127.0.0.1:* http://127.0.0.1:*"}`,
+      `connect-src 'self' https://upload.imagekit.io${isProduction ? "" : " ws://localhost:* http://localhost:* ws://127.0.0.1:* http://127.0.0.1:*"}`,
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",
@@ -47,6 +52,19 @@ const nextConfig: NextConfig = {
         ],
       },
     ];
+  },
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+      },
+      {
+        protocol: "https",
+        hostname: imageKitEndpoint.hostname,
+        pathname: `${imageKitEndpoint.pathname.replace(/\/+$/, "")}/**`,
+      },
+    ],
   },
   turbopack: {
     rules: {

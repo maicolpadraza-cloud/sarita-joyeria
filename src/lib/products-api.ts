@@ -2,7 +2,12 @@ import {
   ProductValidationError,
   validateProductInput,
 } from "@/lib/product-validation";
-import type { Product } from "@/lib/products";
+import type { AdminProduct, Product } from "@/lib/products";
+
+export interface ProductWriteResult {
+  product: AdminProduct;
+  warning?: string;
+}
 
 export class ProductsApiError extends Error {
   constructor(
@@ -62,7 +67,7 @@ async function requestJson(
   return payload;
 }
 
-function parseProduct(value: unknown): Product {
+function parseProduct(value: unknown): AdminProduct {
   try {
     return validateProductInput(value, { requireId: true });
   } catch (error) {
@@ -74,7 +79,7 @@ function parseProduct(value: unknown): Product {
   }
 }
 
-export async function fetchProducts(): Promise<Product[]> {
+export async function fetchProducts(): Promise<AdminProduct[]> {
   const payload = await requestJson("/api/products");
   if (!isRecord(payload) || !Array.isArray(payload.products)) {
     throw new ProductsApiError("La API devolvió una lista de productos inválida.", 502);
@@ -102,7 +107,9 @@ export async function fetchProductById(
   }
 }
 
-export async function saveProduct(product: Product): Promise<Product> {
+export async function saveProduct(
+  product: AdminProduct,
+): Promise<ProductWriteResult> {
   const payload = await requestJson("/api/products", {
     method: "POST",
     body: JSON.stringify(product),
@@ -110,13 +117,16 @@ export async function saveProduct(product: Product): Promise<Product> {
   if (!isRecord(payload) || !("product" in payload)) {
     throw new ProductsApiError("La API no confirmó la creación del producto.", 502);
   }
-  return parseProduct(payload.product);
+  return {
+    product: parseProduct(payload.product),
+    ...(typeof payload.warning === "string" ? { warning: payload.warning } : {}),
+  };
 }
 
 export async function updateProductApi(
   id: string,
-  product: Product,
-): Promise<Product> {
+  product: AdminProduct,
+): Promise<ProductWriteResult> {
   const payload = await requestJson(
     `/api/products/${encodeURIComponent(id)}`,
     {
@@ -127,10 +137,13 @@ export async function updateProductApi(
   if (!isRecord(payload) || !("product" in payload)) {
     throw new ProductsApiError("La API no confirmó la actualización del producto.", 502);
   }
-  return parseProduct(payload.product);
+  return {
+    product: parseProduct(payload.product),
+    ...(typeof payload.warning === "string" ? { warning: payload.warning } : {}),
+  };
 }
 
-export async function removeProduct(id: string): Promise<void> {
+export async function removeProduct(id: string): Promise<string | undefined> {
   const payload = await requestJson(
     `/api/products/${encodeURIComponent(id)}`,
     { method: "DELETE" },
@@ -138,4 +151,12 @@ export async function removeProduct(id: string): Promise<void> {
   if (!isRecord(payload) || payload.ok !== true) {
     throw new ProductsApiError("La API no confirmó la eliminación del producto.", 502);
   }
+  return typeof payload.warning === "string" ? payload.warning : undefined;
+}
+
+export async function deletePendingImageKitFile(fileId: string): Promise<void> {
+  await requestJson("/api/imagekit/file", {
+    method: "DELETE",
+    body: JSON.stringify({ fileId }),
+  });
 }

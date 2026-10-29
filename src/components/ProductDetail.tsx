@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
+import ProductImage from "@/components/ProductImage";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   materialBadgeLabels,
@@ -198,7 +198,7 @@ export default function ProductDetail({
 
       <section className="mx-auto grid w-full max-w-7xl gap-8 px-5 py-8 sm:px-8 sm:py-12 lg:grid-cols-2 lg:items-center lg:gap-16 lg:py-16">
         <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-[#F9EFEB]">
-          <Image
+          <ProductImage
             src={
               isAllowedProductImageUrl(product.image)
                 ? product.image
@@ -207,7 +207,7 @@ export default function ProductDetail({
             alt={product.name}
             fill
             sizes="(max-width: 1023px) 100vw, 50vw"
-            unoptimized
+            transformWidth={1600}
             className="object-contain"
             priority
           />

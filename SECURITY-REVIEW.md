@@ -27,4 +27,4 @@ There are no known unresolved code-level security findings from this review. One
 
 - Configure `DB_SSL=true` and the required MySQL connection variables in production.
 - Use a dedicated MySQL account with only the permissions the application needs, as documented in `database/README.md`.
-- Replace the legacy database product image stored as a `data:` URI with an allowed image URL. The application rejects it and displays a safe logo fallback in the meantime.
+- A query of the live TiDB product table during the ImageKit integration found no `data:` URI images. Product image URLs are validated against local paths and the configured Unsplash/ImageKit hosts.

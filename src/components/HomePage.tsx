@@ -1,11 +1,11 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import Image from "next/image";
 import Link from "next/link";
 import { Montserrat, Playfair_Display } from "next/font/google";
 import { useEffect, useState } from "react";
 import SplashScreen from "@/components/SplashScreen";
+import ProductImage from "@/components/ProductImage";
 import {
   categories,
   materialFilters,
@@ -204,7 +204,7 @@ export default function HomePage({ initialFilters }: HomePageProps) {
               className="flex flex-col items-center text-center"
               aria-label="Sarita Joyería y Accesorios, inicio"
             >
-              <Image
+              <ProductImage
                 src="/logo-luna.png"
                 alt="Logo Luna"
                 width={52}
@@ -496,7 +496,7 @@ export default function HomePage({ initialFilters }: HomePageProps) {
                   aria-label={`Ver detalles de ${product.name}`}
                 >
                   <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-[#F9EFEB] sm:rounded-2xl">
-                    <Image
+                    <ProductImage
                       src={
                         isAllowedProductImageUrl(product.image)
                           ? product.image
@@ -507,7 +507,7 @@ export default function HomePage({ initialFilters }: HomePageProps) {
                       width={900}
                       height={900}
                       sizes="(max-width: 1023px) 50vw, (max-width: 1279px) 33vw, 25vw"
-                      unoptimized
+                      transformWidth={800}
                       className="aspect-square w-full object-cover motion-safe:transition-transform motion-safe:duration-500 motion-safe:ease-out motion-safe:group-hover:scale-[1.02] motion-reduce:transform-none motion-reduce:transition-none"
                     />
                     <span className="absolute left-2 top-2 rounded-full border border-white/70 bg-[#FCF7F4]/90 px-2 py-1 text-[9px] font-semibold tracking-wide text-[#765B50] backdrop-blur-sm sm:left-3 sm:top-3 sm:px-3 sm:text-[10px]">

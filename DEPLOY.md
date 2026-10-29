@@ -82,6 +82,9 @@ GitHub.
 | `SESSION_SECRET` | Secreto aleatorio de al menos 32 caracteres para firmar las sesiones. Genera uno localmente; no lo publiques ni lo reutilices como contraseña. |
 | `NEXT_PUBLIC_WHATSAPP_NUMBER` | Número del negocio en formato internacional, solo dígitos, sin `+` ni espacios. |
 | `NEXT_PUBLIC_SITE_URL` | URL canónica completa del sitio, incluyendo `https://`, sin barra final ni ruta. Para producción, usa el dominio `*.vercel.app` que te asigne Vercel; después cámbialo al dominio propio. |
+| `NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT` | Endpoint público mostrado en ImageKit, por ejemplo `https://ik.imagekit.io/tu-id`. |
+| `NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY` | Public Key de ImageKit; se puede mostrar en el navegador y se obtiene del panel de ImageKit. |
+| `IMAGEKIT_PRIVATE_KEY` | Private Key de ImageKit. Guárdala solo en variables de entorno de Vercel y archivos locales ignorados; nunca en Git. |
 
 En **Settings → Environment Variables**, añade cada variable por separado,
 elige el entorno correspondiente y pulsa **Save**. Para regenerar el hash:
@@ -135,7 +138,7 @@ internos.
    El mensaje debe enlazar al dominio público, no a `localhost`.
 4. Abre `https://TU-DOMINIO/admin`, inicia sesión con `ADMIN_USER` y la
    contraseña correspondiente al hash. Prueba crear, editar y borrar un
-   producto de prueba, y luego cierra sesión.
+   producto de prueba, subir y reemplazar su foto, y luego cierra sesión.
 5. Abre `https://TU-DOMINIO/sitemap.xml` para confirmar que incluye la página
    principal y los productos.
 
@@ -159,3 +162,7 @@ final de Vercel, utiliza el enlace de producción.
 El proyecto ya genera metadatos Open Graph para el sitio y cada producto, tiene
 favicon y crea un sitemap dinámico a partir de TiDB. `robots.txt` bloquea
 `/admin` y `/api`.
+
+Antes de habilitar cargas en una base existente, aplica la migración indicada
+en `README.md` para agregar `products.imagekit_file_id`. Las fotos se guardan
+en ImageKit, nunca como datos binarios en MySQL.

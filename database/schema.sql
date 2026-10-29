@@ -17,12 +17,14 @@ CREATE TABLE IF NOT EXISTS products (
   closure_type VARCHAR(32) NULL,
   price DECIMAL(10, 2) NOT NULL,
   image MEDIUMTEXT NOT NULL,
+  imagekit_file_id VARCHAR(128) NULL,
   description LONGTEXT NOT NULL,
   in_stock TINYINT(1) NOT NULL DEFAULT 1,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   KEY idx_products_category_id (category_id),
   KEY idx_products_in_stock (in_stock),
+  KEY idx_products_imagekit_file_id (imagekit_file_id),
   CONSTRAINT fk_products_category
     FOREIGN KEY (category_id)
     REFERENCES categories (id)

@@ -3,6 +3,8 @@
 El proyecto usa MySQL mediante `mysql2`. `schema.sql` define las tablas
 `categories`, `products` y `admin_login_attempts`; carga primero las categorías
 requeridas por el catálogo antes de usar la API o cargar productos de muestra.
+La tabla `products` incluye `imagekit_file_id` para borrar archivos de ImageKit
+cuando se reemplaza una foto o se elimina su producto.
 
 ## TiDB Cloud
 
@@ -85,9 +87,21 @@ solo los permisos requeridos: `SELECT` sobre `categories`; `SELECT`, `INSERT`,
 El script CLI de seed necesita además leer `categories` e insertar/actualizar
 `products`.
 
-Las imágenes existentes que no sean rutas del sitio o HTTPS de
-`images.unsplash.com` se sirven como `/logo-luna.png` hasta que se reemplace su
-URL desde el panel.
+Las imágenes existentes que no sean rutas del sitio, HTTPS de
+`images.unsplash.com` o URLs HTTPS de `ik.imagekit.io/sxvg5dlmq` se sirven como
+`/logo-luna.png` hasta que se reemplace su URL desde el panel.
+
+Para una base ya creada antes de agregar soporte de ImageKit, aplica una sola
+vez esta migración con una cuenta que tenga permisos DDL:
+
+```sql
+ALTER TABLE products
+  ADD COLUMN imagekit_file_id VARCHAR(128) NULL,
+  ADD KEY idx_products_imagekit_file_id (imagekit_file_id);
+```
+
+La cuenta restringida `sarita_app` no tiene permisos para ejecutar este cambio.
+No se ejecuta automáticamente desde la app.
 
 Configura `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` y `DB_SSL`
 en `.env.local` para desarrollo y en el gestor de variables de entorno para
