@@ -2,7 +2,7 @@ import {
   ProductValidationError,
   validateProductInput,
 } from "@/lib/product-validation";
-import type { AdminProduct, Product } from "@/lib/products";
+import type { AdminProduct, Product, ProductInput } from "@/lib/products";
 
 export interface ProductWriteResult {
   product: AdminProduct;
@@ -108,7 +108,7 @@ export async function fetchProductById(
 }
 
 export async function saveProduct(
-  product: AdminProduct,
+  product: ProductInput,
 ): Promise<ProductWriteResult> {
   const payload = await requestJson("/api/products", {
     method: "POST",
@@ -125,7 +125,7 @@ export async function saveProduct(
 
 export async function updateProductApi(
   id: string,
-  product: AdminProduct,
+  product: ProductInput,
 ): Promise<ProductWriteResult> {
   const payload = await requestJson(
     `/api/products/${encodeURIComponent(id)}`,

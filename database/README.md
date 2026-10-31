@@ -103,6 +103,20 @@ ALTER TABLE products
 La cuenta restringida `sarita_app` no tiene permisos para ejecutar este cambio.
 No se ejecuta automáticamente desde la app.
 
+## Código interno de producto
+
+Las instalaciones existentes deben aplicar la migración idempotente con una
+cuenta con permisos DDL:
+
+```powershell
+node --env-file=.env.admin.local scripts/migrate-product-code.mjs
+```
+
+La migración añade `products.code`, asigna códigos secuenciales según la
+antigüedad de cada registro y crea el índice único `uq_products_code`. Los
+códigos tienen formato `SJ-0001`; los nuevos se generan en el servidor. La
+cuenta de la aplicación no necesita permisos DDL.
+
 Configura `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` y `DB_SSL`
 en `.env.local` para desarrollo y en el gestor de variables de entorno para
 producción. Si falta una variable, la aplicación falla en vez de usar valores

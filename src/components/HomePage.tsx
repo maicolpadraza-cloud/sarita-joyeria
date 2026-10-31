@@ -22,6 +22,7 @@ import {
   readProducts,
 } from "@/lib/product-storage";
 import { fetchProducts } from "@/lib/products-api";
+import { createGeneralInquiryUrl } from "@/lib/whatsapp";
 
 const playfairDisplay = Playfair_Display({ subsets: ["latin"] });
 const montserrat = Montserrat({ subsets: ["latin"] });
@@ -534,6 +535,9 @@ export default function HomePage({ initialFilters }: HomePageProps) {
                         {bolivianCurrency.format(product.price)}
                       </p>
                     </div>
+                    <p className="mt-2 inline-flex min-h-11 items-center text-xs font-medium text-[#765B50] underline decoration-[#B88645] underline-offset-4 transition-colors group-hover:text-[#301C18]">
+                      Ver detalle <span className="ml-1" aria-hidden="true">→</span>
+                    </p>
                     {product.closureType && (
                       <p className="mt-1 block text-[11px] font-normal text-[#765B50] sm:text-xs">
                         Cierre: {product.closureType}
@@ -572,7 +576,17 @@ export default function HomePage({ initialFilters }: HomePageProps) {
           id="contacto"
           className="bg-darkBrown px-6 py-7 text-center text-[10px] tracking-[0.12em] text-cream/70"
         >
-          Sarita Joyería y Accesorios · Hecho con cariño
+          <p>Sarita Joyería y Accesorios · Hecho con cariño</p>
+          {createGeneralInquiryUrl() && (
+            <a
+              href={createGeneralInquiryUrl()!}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-flex min-h-11 items-center px-2 text-[10px] tracking-normal text-cream/70 underline underline-offset-4 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cream"
+            >
+              Escríbenos por WhatsApp
+            </a>
+          )}
         </footer>
       </motion.main>
     </>

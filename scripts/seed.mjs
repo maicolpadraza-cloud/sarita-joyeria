@@ -59,22 +59,18 @@ const pool = createPool({
   ssl: { minVersion: "TLSv1.2", rejectUnauthorized: true },
 });
 
-const upsertProductSql = `
+const updateProductSql = `
+  UPDATE products
+  SET name = ?, category_id = ?, subcategory = ?, accessory_type = ?,
+      material = ?, closure_type = ?, price = ?, image = ?,
+      description = ?, in_stock = ?
+  WHERE id = ?
+`;
+const insertProductSql = `
   INSERT INTO products
-    (id, name, category_id, subcategory, accessory_type, material,
+    (id, code, name, category_id, subcategory, accessory_type, material,
      closure_type, price, image, description, in_stock)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  ON DUPLICATE KEY UPDATE
-    name = VALUES(name),
-    category_id = VALUES(category_id),
-    subcategory = VALUES(subcategory),
-    accessory_type = VALUES(accessory_type),
-    material = VALUES(material),
-    closure_type = VALUES(closure_type),
-    price = VALUES(price),
-    image = VALUES(image),
-    description = VALUES(description),
-    in_stock = VALUES(in_stock)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `;
 
 let connection;
@@ -88,6 +84,12 @@ try {
   const categoryIds = new Map(
     categoryRows.map((category) => [category.name, category.id]),
   );
+  const [[{ maximumCode }]] = await connection.execute(
+    `SELECT MAX(CAST(SUBSTRING(code, 4) AS UNSIGNED)) AS maximumCode
+     FROM products
+     WHERE code REGEXP '^SJ-[0-9]{4,}$'`,
+  );
+  let nextProductNumber = Number(maximumCode ?? 0) + 1;
 
   for (const product of products) {
     const categoryId = categoryIds.get(product.category);
@@ -95,8 +97,11 @@ try {
       throw new Error(`Missing seeded category: ${product.category}`);
     }
 
-    await connection.execute(upsertProductSql, [
-      product.id,
+    const [existingProducts] = await connection.execute(
+      "SELECT code FROM products WHERE id = ? LIMIT 1",
+      [product.id],
+    );
+    const values = [
       product.name,
       categoryId,
       product.subcategory ?? null,
@@ -107,6 +112,20 @@ try {
       product.image,
       product.description,
       product.inStock ? 1 : 0,
+    ];
+    if (existingProducts[0]) {
+      await connection.execute(updateProductSql, [...values, product.id]);
+      continue;
+    }
+
+    const code = `SJ-${String(nextProductNumber++).padStart(4, "0")}`;
+    if (code.length > 20) {
+      throw new Error("Product code sequence exceeds the VARCHAR(20) limit.");
+    }
+    await connection.execute(insertProductSql, [
+      product.id,
+      code,
+      ...values,
     ]);
   }
 

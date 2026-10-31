@@ -1,15 +1,10 @@
 import { z } from "zod";
 import {
-  type Product,
   type AdminProduct,
   type ProductCategory,
+  type ProductInput,
   type ProductMaterial,
 } from "@/lib/products";
-
-export type ProductInput = Omit<Product, "id"> & {
-  id?: string;
-  imageKitFileId?: string;
-};
 
 export class ProductValidationError extends Error {
   constructor(message: string) {
@@ -138,6 +133,11 @@ export const productInputSchema = z
   })
   .strict();
 
+const productRecordSchema = productInputSchema.extend({
+  id: z.string().trim().min(1).max(64),
+  code: z.string().regex(/^SJ-\d{4,}$/),
+}).strict();
+
 export const productIdSchema = z.string().trim().min(1).max(64);
 
 export function isProductCategory(value: unknown): value is ProductCategory {
@@ -160,7 +160,9 @@ export function validateProductInput(
   value: unknown,
   options: { requireId?: boolean } = {},
 ): ProductInput | AdminProduct {
-  const parsed = productInputSchema.safeParse(value);
+  const parsed = options.requireId
+    ? productRecordSchema.safeParse(value)
+    : productInputSchema.safeParse(value);
   if (!parsed.success) {
     throw new ProductValidationError(
       parsed.error.issues[0]?.message ?? "Los datos del producto no son válidos.",
@@ -173,7 +175,7 @@ export function validateProductInput(
   }
 
   if (options.requireId) {
-    return { ...parsed.data, id };
+    return { ...parsed.data, id } as AdminProduct;
   }
   return parsed.data;
 }

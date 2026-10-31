@@ -7,10 +7,11 @@ import {
   isAllowedProductImageUrl,
   validateProductInput,
 } from "@/lib/product-validation";
-import type { AdminProduct, Product } from "@/lib/products";
+import type { AdminProduct, Product, ProductInput } from "@/lib/products";
 
 interface ProductRow extends RowDataPacket {
   id: string;
+  code: string;
   name: string;
   category: string;
   subcategory: string | null;
@@ -28,10 +29,14 @@ interface CategoryIdRow extends RowDataPacket {
   id: number;
 }
 
-function mapProductRow(row: ProductRow, includeImageKitFileId = false): AdminProduct {
+function mapProductRow(
+  row: ProductRow,
+  includeImageKitFileId = false,
+): AdminProduct {
   return validateProductInput(
     {
       id: row.id,
+      code: row.code,
       name: row.name,
       category: row.category,
       subcategory: row.subcategory ?? undefined,
@@ -71,6 +76,7 @@ export async function getAllProducts(): Promise<Product[]> {
   const [rows] = await db.execute<ProductRow[]>(
     `SELECT
       p.id,
+      p.code,
       p.name,
       c.name AS category,
       p.subcategory,
@@ -93,6 +99,7 @@ export async function getAdminProducts(): Promise<AdminProduct[]> {
   const [rows] = await db.execute<ProductRow[]>(
     `SELECT
       p.id,
+      p.code,
       p.name,
       c.name AS category,
       p.subcategory,
@@ -111,10 +118,11 @@ export async function getAdminProducts(): Promise<AdminProduct[]> {
   return rows.map((row) => mapProductRow(row, true));
 }
 
-export async function getProductById(id: string): Promise<Product | null> {
+export async function getProductById(id: string): Promise<AdminProduct | null> {
   const [rows] = await db.execute<ProductRow[]>(
     `SELECT
       p.id,
+      p.code,
       p.name,
       c.name AS category,
       p.subcategory,
@@ -150,36 +158,91 @@ export async function isImageKitFileInUse(fileId: string): Promise<boolean> {
   return rows.length > 0;
 }
 
-export async function createProduct(product: AdminProduct): Promise<Product> {
-  const categoryId = await getCategoryId(product.category);
-  await db.execute<ResultSetHeader>(
-    `INSERT INTO products
-      (id, name, category_id, subcategory, accessory_type, material,
-       closure_type, price, image, imagekit_file_id, description, in_stock)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      product.id,
-      product.name,
-      categoryId,
-      product.subcategory ?? null,
-      product.accessoryType ?? null,
-      product.material,
-      product.closureType ?? null,
-      product.price,
-      product.image,
-      product.imageKitFileId ?? null,
-      product.description,
-      product.inStock ? 1 : 0,
-    ],
-  );
+export class ProductCodeGenerationError extends Error {
+  constructor() {
+    super("Could not allocate a unique product code after multiple attempts.");
+    this.name = "ProductCodeGenerationError";
+  }
+}
 
-  return product;
+async function getNextProductCode(): Promise<string> {
+  const [rows] = await db.execute<
+    Array<RowDataPacket & { maximumCode: number | string | null }>
+  >(
+    `SELECT MAX(CAST(SUBSTRING(code, 4) AS UNSIGNED)) AS maximumCode
+     FROM products
+     WHERE code REGEXP '^SJ-[0-9]{4,}$'`,
+  );
+  const maximumCode = Number(rows[0]?.maximumCode ?? 0);
+  if (!Number.isSafeInteger(maximumCode) || maximumCode < 0) {
+    throw new ProductCodeGenerationError();
+  }
+
+  const nextNumber = maximumCode + 1;
+  const code = `SJ-${String(nextNumber).padStart(4, "0")}`;
+  if (code.length > 20) {
+    throw new ProductCodeGenerationError();
+  }
+  return code;
+}
+
+function isDuplicateEntryError(
+  error: unknown,
+): error is Error & { code: string } {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "ER_DUP_ENTRY"
+  );
+}
+
+export async function createProduct(
+  product: ProductInput & { id: string },
+): Promise<AdminProduct> {
+  const categoryId = await getCategoryId(product.category);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = await getNextProductCode();
+    try {
+      await db.execute<ResultSetHeader>(
+        `INSERT INTO products
+          (id, code, name, category_id, subcategory, accessory_type, material,
+           closure_type, price, image, imagekit_file_id, description, in_stock)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          product.id,
+          code,
+          product.name,
+          categoryId,
+          product.subcategory ?? null,
+          product.accessoryType ?? null,
+          product.material,
+          product.closureType ?? null,
+          product.price,
+          product.image,
+          product.imageKitFileId ?? null,
+          product.description,
+          product.inStock ? 1 : 0,
+        ],
+      );
+      return { ...product, code };
+    } catch (error) {
+      if (!isDuplicateEntryError(error)) throw error;
+
+      const [rows] = await db.execute<
+        Array<RowDataPacket & { id: string }>
+      >("SELECT id FROM products WHERE code = ? LIMIT 1", [code]);
+      if (rows.length === 0) throw error;
+    }
+  }
+
+  throw new ProductCodeGenerationError();
 }
 
 export async function updateProduct(
   id: string,
-  product: AdminProduct,
-): Promise<Product | null> {
+  product: ProductInput,
+): Promise<AdminProduct | null> {
   const categoryId = await getCategoryId(product.category);
   await db.execute<ResultSetHeader>(
     `UPDATE products

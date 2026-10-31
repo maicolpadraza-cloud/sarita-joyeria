@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import ProductImage from "@/components/ProductImage";
+import { Check, Copy } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   materialBadgeLabels,
@@ -56,6 +57,7 @@ export default function ProductDetail({
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [loadedProductId, setLoadedProductId] = useState<string | null>(null);
+  const [copyStatus, setCopyStatus] = useState("");
 
   useEffect(() => {
     let isMounted = true;
@@ -176,6 +178,16 @@ export default function ProductDetail({
       )
     : null;
 
+  async function copyProductCode() {
+    if (!currentProduct.code) return;
+    try {
+      await navigator.clipboard.writeText(currentProduct.code);
+      setCopyStatus("Código copiado.");
+    } catch {
+      setCopyStatus("No se pudo copiar el código.");
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[#FCF7F4] text-[#301C18]">
       <header className="border-b border-[#EADDD7] bg-[#F1D5D5]">
@@ -232,6 +244,25 @@ export default function ProductDetail({
           <p className="mt-4 text-2xl font-semibold text-[#9A6B35]">
             {bolivianCurrency.format(product.price)}
           </p>
+          {product.code && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[#765B50]">
+              <span>Código del producto: {product.code}</span>
+              <button
+                type="button"
+                onClick={copyProductCode}
+                aria-label={`Copiar código ${product.code}`}
+                className="inline-flex min-h-9 items-center gap-1 rounded-md px-2 underline underline-offset-2 hover:text-[#301C18] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A7794F]"
+              >
+                {copyStatus === "Código copiado." ? (
+                  <Check size={14} aria-hidden="true" />
+                ) : (
+                  <Copy size={14} aria-hidden="true" />
+                )}
+                Copiar
+              </button>
+              <span className="sr-only" aria-live="polite">{copyStatus}</span>
+            </div>
+          )}
 
           <dl className="mt-7 space-y-4 border-y border-[#EADDD7] py-5 text-sm">
             <div className="flex flex-wrap gap-x-2 gap-y-1">

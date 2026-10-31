@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import {
   Geist,
   Geist_Mono,
   Montserrat,
   Playfair_Display,
 } from "next/font/google";
-import WhatsAppFloatingButton from "@/components/WhatsAppFloatingButton";
 import { getSiteUrl } from "@/lib/site-url";
 import "./globals.css";
 
@@ -76,9 +74,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         {children}
-        <Suspense fallback={null}>
-          <WhatsAppFloatingButton />
-        </Suspense>
       </body>
     </html>
   );

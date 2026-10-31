@@ -37,6 +37,7 @@ export type MasculineAccessoryType =
 
 export interface Product {
   id: string;
+  code?: string;
   name: string;
   category: ProductCategory;
   subcategory?: ProductSubcategory;
@@ -52,6 +53,11 @@ export interface Product {
 export interface AdminProduct extends Product {
   imageKitFileId?: string;
 }
+
+export type ProductInput = Omit<Product, "id" | "code"> & {
+  id?: string;
+  imageKitFileId?: string;
+};
 
 export const categories = [
   "Todos",

@@ -10,7 +10,6 @@ import {
   productIdSchema,
   productInputSchema,
 } from "@/lib/product-validation";
-import type { AdminProduct } from "@/lib/products";
 import { isAdminRequest } from "@/lib/admin-auth";
 import { parseJsonBody } from "@/lib/api-validation";
 
@@ -76,8 +75,7 @@ export async function PUT(
 
   try {
     const previousImageKitFileId = await getImageKitFileId(parsedId.data);
-    const product: AdminProduct = { ...input, id: parsedId.data };
-    const updatedProduct = await updateProduct(parsedId.data, product);
+    const updatedProduct = await updateProduct(parsedId.data, input);
     if (!updatedProduct) {
       return Response.json(
         { error: "No se encontró el producto que deseas actualizar." },

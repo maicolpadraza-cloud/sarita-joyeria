@@ -49,6 +49,7 @@ export function createProductOrderMessage(
       : "Hola, SARITA. 💖 Me interesa esta joya:",
     "",
     `✨ Producto: ${product.name}`,
+    `🔢 Código: ${product.code ?? "No disponible"}`,
     `💎 Categoría: ${product.category}`,
     `🏷️ Material: ${materialLabels[product.material]}`,
     `💰 Precio: ${bolivianCurrency.format(product.price)}`,

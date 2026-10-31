@@ -59,7 +59,7 @@ const masculineAccessoryTypes: MasculineAccessoryType[] = [
   "Anillos",
   "Billeteras",
 ];
-type ProductDraft = Omit<AdminProduct, "id">;
+type ProductDraft = Omit<AdminProduct, "id" | "code">;
 
 interface ImageKitStorageUsage {
   usedBytes: number;
@@ -122,6 +122,7 @@ export default function AdminPage() {
   const [items, setItems] = useState<AdminProduct[]>([]);
   const [draft, setDraft] = useState<ProductDraft>(createEmptyDraft);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingCode, setEditingCode] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [isReady, setIsReady] = useState(false);
@@ -327,15 +328,8 @@ export default function AdminPage() {
     .split(/\s+/)
     .filter(Boolean);
   const filteredItems = items.filter((product) => {
-    const searchableText = [
-      product.name,
-      product.category,
-      product.material,
-      materialLabels[product.material],
-      product.description,
-      product.closureType,
-    ]
-      .filter(Boolean)
+    const searchableText = [product.code, product.name]
+      .filter((value): value is string => Boolean(value))
       .join(" ")
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
@@ -384,6 +378,7 @@ export default function AdminPage() {
     setPreparedImageSize(null);
     setDraft(createEmptyDraft());
     setEditingId(null);
+    setEditingCode("");
     setNotice("");
   }
 
@@ -588,8 +583,9 @@ export default function AdminPage() {
 
   function startEditing(product: AdminProduct) {
     if (pendingImageKitFileId.current) resetForm();
-    const { id, ...productDraft } = product;
+    const { id, code, ...productDraft } = product;
     setEditingId(id);
+    setEditingCode(code ?? "");
     setDraft(productDraft);
     setNotice("");
     setError("");
@@ -716,6 +712,17 @@ export default function AdminPage() {
             </div>
 
             <form className="space-y-4" onSubmit={handleSubmit}>
+              {editingId && (
+                <label className="block text-xs font-medium">
+                  Código del producto
+                  <input
+                    className={inputClassName}
+                    value={editingCode}
+                    readOnly
+                    aria-readonly="true"
+                  />
+                </label>
+              )}
               <label className="block text-xs font-medium">
                 Nombre del producto
                 <input
@@ -1046,8 +1053,8 @@ export default function AdminPage() {
                 type="search"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Buscar por nombre, categoría o material…"
-                aria-label="Buscar productos del catálogo"
+                placeholder="Buscar por código o nombre…"
+                aria-label="Buscar productos por código o nombre"
                 className="w-full bg-transparent py-3 text-sm text-darkBrown outline-none placeholder:text-darkBrown/45"
               />
             </label>
@@ -1085,6 +1092,9 @@ export default function AdminPage() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">
                         {product.name}
+                      </p>
+                      <p className="mt-1 text-[10px] font-semibold tracking-wide text-[#765B50]">
+                        {product.code ?? "Código pendiente"}
                       </p>
                       <p className="mt-1 truncate text-[10px] text-warmBrown">
                         {product.category} · {materialLabels[product.material]}

@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS categories (
 
 CREATE TABLE IF NOT EXISTS products (
   id VARCHAR(64) NOT NULL,
+  code VARCHAR(20) NOT NULL,
+  code VARCHAR(20) NOT NULL,
   name VARCHAR(150) NOT NULL,
   category_id INT UNSIGNED NOT NULL,
   subcategory VARCHAR(32) NULL,
@@ -22,6 +24,8 @@ CREATE TABLE IF NOT EXISTS products (
   in_stock TINYINT(1) NOT NULL DEFAULT 1,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
+  UNIQUE KEY uq_products_code (code),
+  UNIQUE KEY uq_products_code (code),
   KEY idx_products_category_id (category_id),
   KEY idx_products_in_stock (in_stock),
   KEY idx_products_imagekit_file_id (imagekit_file_id),

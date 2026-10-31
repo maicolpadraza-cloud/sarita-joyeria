@@ -3,9 +3,9 @@ import {
   createProduct,
   getAdminProducts,
   getAllProducts,
+  ProductCodeGenerationError,
 } from "@/lib/product-repository";
 import { productInputSchema } from "@/lib/product-validation";
-import type { AdminProduct } from "@/lib/products";
 import { isAdminRequest } from "@/lib/admin-auth";
 import { parseJsonBody } from "@/lib/api-validation";
 
@@ -37,13 +37,21 @@ export async function POST(request: Request) {
   const input = parsedBody.data;
 
   try {
-    const product: AdminProduct = {
+    const product = {
       ...input,
       id: input.id ?? randomUUID(),
     };
     const createdProduct = await createProduct(product);
     return Response.json({ product: createdProduct }, { status: 201 });
   } catch (error) {
+    if (error instanceof ProductCodeGenerationError) {
+      console.error("No se pudo asignar un código único al producto:", error);
+      return Response.json(
+        { error: "No se pudo asignar un código al producto. Inténtalo de nuevo." },
+        { status: 503 },
+      );
+    }
+
     if (isDuplicateIdError(error)) {
       return Response.json(
         { error: "No se pudo crear el producto con esos datos." },
