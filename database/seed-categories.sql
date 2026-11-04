@@ -8,7 +8,6 @@ VALUES
   ('Anillos'),
   ('Pulseras'),
   ('Piercings'),
-  ('Titanio'),
   ('Conjuntos'),
   ('Relojes'),
   ('Carteras'),

@@ -7,6 +7,10 @@ const sessionIssuer = "sarita-joyeria";
 const sessionAudience = "sarita-admin";
 const bcryptHashPattern = /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/;
 
+export function getAdminPasswordHash(): string {
+  return (process.env.ADMIN_PASSWORD_HASH ?? "").replace(/\\\$/g, "$").trim();
+}
+
 export function validateAdminAuthConfig(): void {
   const missingVariables = (
     ["ADMIN_USER", "ADMIN_PASSWORD_HASH", "SESSION_SECRET"] as const
@@ -22,7 +26,7 @@ export function validateAdminAuthConfig(): void {
     throw new Error("SESSION_SECRET must contain at least 32 characters.");
   }
 
-  if (!bcryptHashPattern.test(process.env.ADMIN_PASSWORD_HASH!)) {
+  if (!bcryptHashPattern.test(getAdminPasswordHash())) {
     throw new Error("ADMIN_PASSWORD_HASH must be a valid bcrypt hash.");
   }
 }

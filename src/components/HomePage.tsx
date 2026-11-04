@@ -8,10 +8,10 @@ import SplashScreen from "@/components/SplashScreen";
 import ProductImage from "@/components/ProductImage";
 import {
   categories,
+  getAvailableProductMaterials,
   materialFilters,
   materialLabels,
   materialBadgeLabels,
-  materialsByCategory,
   type MasculineAccessoryType,
   type Product,
   type ProductMaterial,
@@ -67,8 +67,17 @@ export default function HomePage({ initialFilters }: HomePageProps) {
   );
   const [selectedCategory, setSelectedCategory] =
     useState<(typeof categories)[number]>(initialFilters.category);
-  const [selectedMaterial, setSelectedMaterial] =
-    useState<ProductMaterial | null>(initialFilters.material);
+  const [selectedMaterial, setSelectedMaterial] = useState<ProductMaterial | null>(
+    () =>
+      initialFilters.material &&
+      getAvailableProductMaterials(
+        initialFilters.category,
+        initialFilters.dijeSubcategory ?? undefined,
+        initialFilters.accessoryType ?? undefined,
+      ).includes(initialFilters.material)
+        ? initialFilters.material
+        : null,
+  );
   const [selectedDijeSubcategory, setSelectedDijeSubcategory] =
     useState<"Iniciales" | null>(initialFilters.dijeSubcategory);
   const [selectedAccessoryType, setSelectedAccessoryType] =
@@ -129,21 +138,15 @@ export default function HomePage({ initialFilters }: HomePageProps) {
       window.removeEventListener("storage", refreshProducts);
     };
   }, [reloadKey]);
-  const visibleMaterialFilters =
-    selectedCategory === "Todos"
-      ? materialFilters
-      : materialFilters.filter((filter) => {
-          if (filter.value === null) return true;
-
-          const categoryMaterials = materialsByCategory[selectedCategory];
-          if (
-            selectedCategory === "Dijes" &&
-            selectedDijeSubcategory === "Iniciales"
-          ) {
-            return filter.value === "Xuping" || filter.value === "Acero";
-          }
-          return categoryMaterials.includes(filter.value);
-        });
+  const availableMaterials = getAvailableProductMaterials(
+    selectedCategory,
+    selectedDijeSubcategory ?? undefined,
+    selectedAccessoryType ?? undefined,
+  );
+  const visibleMaterialFilters = materialFilters.filter(
+    (filter) =>
+      filter.value === null || availableMaterials.includes(filter.value),
+  );
   const normalizedSearch = searchQuery
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -308,9 +311,14 @@ export default function HomePage({ initialFilters }: HomePageProps) {
                 Nuestra colección
               </h2>
             </div>
-            <p className="shrink-0 font-boutique text-[10px] font-medium uppercase tracking-[0.16em] text-[#765B50] max-[639px]:text-[9px] max-[639px]:tracking-[0.1em] sm:pb-1 sm:text-[11px]">
-              {filteredProducts.length}{" "}
-              {filteredProducts.length === 1 ? "producto" : "productos"}
+            <p
+              className="shrink-0 font-boutique text-[10px] font-medium uppercase tracking-[0.16em] text-[#765B50] max-[639px]:text-[9px] max-[639px]:tracking-[0.1em] sm:pb-1 sm:text-[11px]"
+              aria-live="polite"
+              aria-busy={catalogLoading}
+            >
+              {catalogLoading
+                ? "Cargando productos…"
+                : `${filteredProducts.length} ${filteredProducts.length === 1 ? "producto" : "productos"}`}
             </p>
           </div>
 
@@ -324,10 +332,15 @@ export default function HomePage({ initialFilters }: HomePageProps) {
                 type="button"
                 aria-pressed={selectedCategory === category}
                 onClick={() => {
+                  const nextSubcategory =
+                    category === "Dijes" ? selectedDijeSubcategory : null;
+                  const nextMaterials = getAvailableProductMaterials(
+                    category,
+                    nextSubcategory ?? undefined,
+                  );
                   if (
                     selectedMaterial !== null &&
-                    category !== "Todos" &&
-                    !materialsByCategory[category].includes(selectedMaterial)
+                    !nextMaterials.includes(selectedMaterial)
                   ) {
                     setSelectedMaterial(null);
                   }
@@ -358,7 +371,20 @@ export default function HomePage({ initialFilters }: HomePageProps) {
                   key={filter.label}
                   type="button"
                   aria-pressed={selectedAccessoryType === filter.value}
-                  onClick={() => setSelectedAccessoryType(filter.value)}
+                  onClick={() => {
+                    const nextMaterials = getAvailableProductMaterials(
+                      "Varones",
+                      undefined,
+                      filter.value ?? undefined,
+                    );
+                    if (
+                      selectedMaterial !== null &&
+                      !nextMaterials.includes(selectedMaterial)
+                    ) {
+                      setSelectedMaterial(null);
+                    }
+                    setSelectedAccessoryType(filter.value);
+                  }}
                   className={`min-h-11 rounded-full border px-4 py-1.5 text-xs font-medium tracking-wide transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A7794F] motion-reduce:transition-none max-[639px]:px-3 max-[639px]:py-2 max-[639px]:text-[11px] ${
                     selectedAccessoryType === filter.value
                       ? "border-[#301C18] bg-[#301C18] text-[#FCF7F4]"
@@ -387,11 +413,13 @@ export default function HomePage({ initialFilters }: HomePageProps) {
                   type="button"
                   aria-pressed={selectedDijeSubcategory === filter.value}
                   onClick={() => {
+                    const nextMaterials = getAvailableProductMaterials(
+                      "Dijes",
+                      filter.value ?? undefined,
+                    );
                     if (
-                      filter.value === "Iniciales" &&
                       selectedMaterial !== null &&
-                      selectedMaterial !== "Xuping" &&
-                      selectedMaterial !== "Acero"
+                      !nextMaterials.includes(selectedMaterial)
                     ) {
                       setSelectedMaterial(null);
                     }

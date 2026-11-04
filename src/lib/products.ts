@@ -1,7 +1,7 @@
 export type ProductMaterial =
   | "Xuping"
   | "Magold"
-  | "Folleado"
+  | "Folheado"
   | "Acero"
   | "Titanio"
   | "Artesanal"
@@ -18,7 +18,6 @@ export type ProductCategory =
   | "Anillos"
   | "Pulseras"
   | "Piercings"
-  | "Titanio"
   | "Conjuntos"
   | "Relojes"
   | "Carteras"
@@ -69,7 +68,6 @@ export const categories = [
   "Anillos",
   "Pulseras",
   "Piercings",
-  "Titanio",
   "Conjuntos",
   "Relojes",
   "Carteras",
@@ -79,65 +77,120 @@ export const categories = [
   "Tobilleras",
 ] as const;
 
-export const materialsByCategory: Record<ProductCategory, ProductMaterial[]> = {
-  Aritos: ["Artesanal", "Folleado", "Acero", "Magold", "Xuping"],
-  Argollas: ["Artesanal", "Folleado", "Acero", "Magold", "Xuping"],
-  Collares: ["Artesanal", "Acero", "Magold", "Xuping"],
-  Dijes: ["Artesanal", "Acero", "Magold", "Xuping"],
-  Rosarios: ["Acero", "Xuping"],
-  Anillos: ["Acero", "Magold", "Xuping"],
-  Pulseras: ["Acero", "Magold", "Xuping"],
-  Piercings: ["Acero", "Xuping"],
-  Titanio: ["Titanio"],
-  Conjuntos: ["Acero", "Xuping"],
-  Relojes: ["Acero", "Xuping"],
-  Carteras: [],
-  Billeteras: [],
-  "Mini joyeros": [],
-  Varones: ["Acero", "Artesanal"],
-  Tobilleras: ["Xuping", "Acero"],
+type ProductMaterialRule = {
+  materials: readonly ProductMaterial[];
+  subcategories?: Partial<
+    Record<ProductSubcategory, readonly ProductMaterial[]>
+  >;
+  accessoryTypes?: Partial<
+    Record<MasculineAccessoryType, readonly ProductMaterial[]>
+  >;
 };
 
-export const categoryMaterialOptions: Record<
-  ProductCategory,
-  ProductMaterial[]
-> = {
-  Aritos: materialsByCategory.Aritos,
-  Argollas: materialsByCategory.Argollas,
-  Collares: materialsByCategory.Collares,
-  Dijes: materialsByCategory.Dijes,
-  Rosarios: materialsByCategory.Rosarios,
-  Anillos: materialsByCategory.Anillos,
-  Pulseras: materialsByCategory.Pulseras,
-  Piercings: materialsByCategory.Piercings,
-  Titanio: materialsByCategory.Titanio,
-  Conjuntos: [...materialsByCategory.Conjuntos, "Magold"],
-  Relojes: [...materialsByCategory.Relojes, "Magold"],
-  Carteras: ["Cuero sintético"],
-  Billeteras: ["Cuero sintético"],
-  "Mini joyeros": ["Artesanal"],
-  Varones: ["Acero", "Artesanal"],
-  Tobilleras: ["Xuping", "Acero"],
-};
+export const productMaterialRules: Record<ProductCategory, ProductMaterialRule> =
+  {
+    Aritos: {
+      materials: ["Artesanal", "Folheado", "Acero", "Magold", "Xuping"],
+    },
+    Argollas: {
+      materials: ["Artesanal", "Folheado", "Acero", "Magold", "Xuping"],
+    },
+    Collares: { materials: ["Artesanal", "Acero", "Magold", "Xuping"] },
+    Dijes: {
+      materials: ["Artesanal", "Acero", "Magold", "Xuping"],
+      subcategories: { Iniciales: ["Xuping", "Acero"] },
+    },
+    Rosarios: { materials: ["Acero", "Xuping"] },
+    Anillos: { materials: ["Acero", "Magold", "Xuping"] },
+    Pulseras: { materials: ["Acero", "Magold", "Xuping"] },
+    Piercings: { materials: ["Folheado", "Titanio", "Acero"] },
+    Conjuntos: { materials: ["Acero", "Xuping", "Magold"] },
+    Relojes: { materials: ["Acero"] },
+    Carteras: { materials: ["Cuero sintético"] },
+    Billeteras: { materials: ["Cuero sintético"] },
+    "Mini joyeros": { materials: ["Artesanal"] },
+    Varones: {
+      materials: [
+        "Acero",
+        "Xuping",
+        "Magold",
+        "Folheado",
+        "Cuero sintético",
+      ],
+      accessoryTypes: {
+        Cadenas: ["Acero"],
+        Pulseras: ["Acero"],
+        Anillos: ["Acero"],
+        Billeteras: ["Xuping", "Magold", "Folheado", "Cuero sintético"],
+      },
+    },
+    Tobilleras: { materials: ["Xuping", "Acero"] },
+  };
 
-export const materialFilters: {
-  label: string;
-  value: ProductMaterial | null;
-}[] = [
-  { label: "Todos los materiales", value: null },
-  { label: "Marca Xuping (Bañado en Oro Antialérgico)", value: "Xuping" },
-  { label: "Marca Magold (Bañado en Oro 24K)", value: "Magold" },
-  { label: "Folleado", value: "Folleado" },
-  { label: "Acero Inoxidable", value: "Acero" },
-  { label: "Titanio", value: "Titanio" },
-  { label: "Línea Artesanal", value: "Artesanal" },
+export function getAllowedProductMaterials(
+  category: ProductCategory,
+  subcategory?: ProductSubcategory,
+  accessoryType?: MasculineAccessoryType,
+): readonly ProductMaterial[] {
+  const rule = productMaterialRules[category];
+  if (subcategory && rule.subcategories?.[subcategory]) {
+    return rule.subcategories[subcategory];
+  }
+  if (accessoryType && rule.accessoryTypes?.[accessoryType]) {
+    return rule.accessoryTypes[accessoryType];
+  }
+  return rule.materials;
+}
+
+export function isProductMaterialAllowed(
+  category: ProductCategory,
+  material: ProductMaterial,
+  subcategory?: ProductSubcategory,
+  accessoryType?: MasculineAccessoryType,
+): boolean {
+  return getAllowedProductMaterials(
+    category,
+    subcategory,
+    accessoryType,
+  ).includes(material);
+}
+
+const allProductMaterials = [
+  ...new Set(
+    Object.values(productMaterialRules).flatMap((rule) => [
+      ...rule.materials,
+      ...Object.values(rule.subcategories ?? {}).flat(),
+      ...Object.values(rule.accessoryTypes ?? {}).flat(),
+    ]),
+  ),
 ];
+
+export function getAvailableProductMaterials(
+  category?: ProductCategory | "Todos",
+  subcategory?: ProductSubcategory,
+  accessoryType?: MasculineAccessoryType,
+): readonly ProductMaterial[] {
+  if (!category || category === "Todos") {
+    return allProductMaterials.filter((material) => material !== "Titanio");
+  }
+  if (!subcategory && !accessoryType) {
+    const rule = productMaterialRules[category];
+    return [
+      ...new Set([
+        ...rule.materials,
+        ...Object.values(rule.subcategories ?? {}).flat(),
+        ...Object.values(rule.accessoryTypes ?? {}).flat(),
+      ]),
+    ];
+  }
+  return getAllowedProductMaterials(category, subcategory, accessoryType);
+}
 
 export const materialLabels: Record<ProductMaterial, string> = {
   Xuping: "Marca Xuping · Oro antialérgico",
   Magold: "Marca Magold · Oro 24K",
-  Folleado: "Folleado",
-  Acero: "Acero inoxidable",
+  Folheado: "Folheado",
+  Acero: "Acero Inoxidable",
   Titanio: "Titanio",
   Artesanal: "Línea artesanal",
   "Cuero sintético": "Cuero sintético",
@@ -146,12 +199,33 @@ export const materialLabels: Record<ProductMaterial, string> = {
 export const materialBadgeLabels: Record<ProductMaterial, string> = {
   Xuping: "Xuping",
   Magold: "Magold 24K",
-  Folleado: "Folleado",
-  Acero: "Acero",
+  Folheado: "Folheado",
+  Acero: "Acero Inoxidable",
   Titanio: "Titanio",
   Artesanal: "Artesanal",
   "Cuero sintético": "Cuero sintético",
 };
+
+const materialFilterLabels: Record<ProductMaterial, string> = {
+  Xuping: "Marca Xuping (Bañado en Oro Antialérgico)",
+  Magold: "Marca Magold (Bañado en Oro 24K)",
+  Folheado: "Folheado",
+  Acero: "Acero Inoxidable",
+  Titanio: "Titanio",
+  Artesanal: "Línea Artesanal",
+  "Cuero sintético": "Cuero sintético",
+};
+
+export const materialFilters: {
+  label: string;
+  value: ProductMaterial | null;
+}[] = [
+  { label: "Todos los materiales", value: null },
+  ...allProductMaterials.map((material) => ({
+    label: materialFilterLabels[material],
+    value: material,
+  })),
+];
 
 export const products: Product[] = [
   {
@@ -191,15 +265,15 @@ export const products: Product[] = [
     inStock: true,
   },
   {
-    id: "set-anillo-pulsera-folleado",
-    name: "Set Anillo y Pulsera Folleado",
+    id: "set-anillo-pulsera-xuping",
+    name: "Set Anillo y Pulsera Xuping",
     category: "Anillos",
-    material: "Folleado",
+    material: "Xuping",
     price: 195,
     image:
       "https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=900&q=85",
     description:
-      "Un conjunto versátil de anillo y pulsera para combinar a diario.",
+      "Un conjunto versátil con baño de oro antialérgico para combinar a diario.",
     inStock: true,
   },
   {
@@ -215,35 +289,35 @@ export const products: Product[] = [
   },
   {
     id: "arito-titanio",
-    name: "Arito de Titanio",
-    category: "Titanio",
+    name: "Piercing de Titanio",
+    category: "Piercings",
     material: "Titanio",
     price: 110,
     image:
       "https://images.unsplash.com/photo-1635767798638-3665a7c6c2f9?auto=format&fit=crop&w=900&q=85",
-    description: "Arito liviano de titanio para una comodidad excepcional.",
+    description: "Piercing liviano de titanio para una comodidad excepcional.",
     inStock: false,
   },
   {
     id: "reloj-dama-magold",
-    name: "Reloj Dama Magold",
+    name: "Reloj Dama de Acero",
     category: "Relojes",
-    material: "Magold",
+    material: "Acero",
     price: 450,
     image:
       "https://images.unsplash.com/photo-1524592094714-0f0654e20314?auto=format&fit=crop&w=900&q=85",
-    description: "Reloj femenino de estilo clásico con detalles dorados.",
+    description: "Reloj femenino de acero con estilo clásico y elegante.",
     inStock: true,
   },
   {
     id: "billetera-artesanal",
-    name: "Monedero Artesanal",
+    name: "Monedero de Cuero Sintético",
     category: "Carteras",
-    material: "Artesanal",
+    material: "Cuero sintético",
     price: 320,
     image:
       "https://images.unsplash.com/photo-1627123424574-724758594e93?auto=format&fit=crop&w=900&q=85",
-    description: "Monedero artesanal práctico para llevar tus esenciales.",
+    description: "Monedero práctico para llevar tus esenciales.",
     inStock: true,
   },
   {
@@ -263,7 +337,7 @@ export const products: Product[] = [
     name: "Billetera Masculina de Cuero",
     category: "Varones",
     accessoryType: "Billeteras",
-    material: "Artesanal",
+    material: "Cuero sintético",
     price: 390,
     image:
       "https://images.unsplash.com/photo-1627123424574-724758594e93?auto=format&fit=crop&w=900&q=85",

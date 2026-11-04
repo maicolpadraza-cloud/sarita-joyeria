@@ -39,8 +39,8 @@ try {
 ```
 
 `apply-schema` runs `database/schema.sql` and the idempotent
-`database/seed-categories.sql`. Schema application requires a TiDB user with
-DDL permissions. After the schema is ready, set `DB_USER` and `DB_PASSWORD` to
+`database/seed-categories.sql` and `database/seed-material-rules.sql`. Schema
+application requires a TiDB user with DDL permissions. After the schema is ready, set `DB_USER` and `DB_PASSWORD` to
 the restricted application account before running `npm run seed` and
 `npm run verify-db`. The latter prints only the category and product counts.
 Each script requires `DB_SSL=true`; `multipleStatements` is enabled only by
@@ -67,6 +67,64 @@ idempotentes de `database/schema.sql` y asegura las categorías de
 `database/seed-categories.sql`. Usa una cuenta TiDB con permisos de creación de
 base de datos y tablas. El comando requiere el host, puerto, usuario,
 contraseña, base y `DB_SSL=true`.
+
+## Materiales por categoría
+
+`products.material` y las tablas de reglas usan los nombres canónicos. El único
+material de titanio es `Titanio`, permitido solo en `Piercings`; no es una
+categoría ni una subcategoría. `Acero` es el nombre almacenado que la interfaz
+muestra como `Acero Inoxidable`. No existe un material separado llamado
+`Línea de acero`.
+
+Las reglas efectivas son:
+
+| Categoría o tipo | Materiales |
+| --- | --- |
+| Piercings | Folheado, Titanio, Acero Inoxidable |
+| Relojes | Acero Inoxidable |
+| Varones / Cadenas, Pulseras y Anillos | Acero Inoxidable |
+| Varones / Billeteras | Xuping, Magold, Folheado, Cuero sintético |
+
+En Varones/Billeteras se excluyen `Artesanal`, `Acero Inoxidable` y `Titanio`.
+El catálogo no ofrece Titanio como filtro general.
+
+Las combinaciones válidas se guardan en `category_material_rules`,
+`subcategory_material_rules` y `accessory_material_rules`; claves foráneas
+compuestas hacen cumplir las reglas en TiDB. TiDB Cloud acepta la sintaxis
+`CHECK` pero no la conserva ni la aplica, así que las claves foráneas son la
+alternativa efectiva.
+
+Para una base ya creada, ejecuta la migración con una cuenta que tenga permisos
+DDL, después de haber cargado las categorías:
+
+```powershell
+node --env-file=.env.admin.local scripts/migrate-material-rules.mjs
+```
+
+Para bases con la categoría antigua `Titanio` o con variantes mal escritas de
+`Folheado`, ejecuta primero la migración idempotente:
+
+```powershell
+node --env-file=.env.admin.local scripts/migrate-titanio.mjs
+```
+
+Esta migración usa TLS 1.2 como mínimo, mueve los productos de la categoría o
+subcategoría `Titanio` a `Piercings` con material `Titanio`, normaliza
+`Folleado` y `Foliado` a `Folheado`, elimina la categoría antigua y sincroniza
+las reglas y claves foráneas. Conserva todos los productos y sus códigos. Las
+combinaciones existentes que siguen incumpliendo las reglas quedan
+temporalmente registradas como excepciones para que sigan visibles y editables;
+la API rechaza nuevas escrituras inválidas. Después de corregir esos productos
+desde el panel, vuelve a ejecutar la migración para retirar excepciones que ya
+no se necesitan.
+
+Para instalaciones futuras, `apply-schema` y los seeds ya usan las categorías
+y materiales canónicos. `migrate-material-rules.mjs` solo es necesario para
+sincronizar reglas en una base existente que no tenga las tablas de reglas.
+
+La cuenta de aplicación `sarita_app` no requiere permisos DDL para administrar
+productos. La regla de materiales se valida en el servidor y también en TiDB;
+no uses `seed` para corregir datos de producción.
 
 ## Configuración de la aplicación
 

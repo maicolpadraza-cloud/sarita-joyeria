@@ -5,6 +5,7 @@ import {
   ADMIN_SESSION_COOKIE,
   ADMIN_SESSION_DURATION_SECONDS,
   createAdminSessionToken,
+  getAdminPasswordHash,
   validateAdminAuthConfig,
 } from "@/lib/admin-auth";
 import {
@@ -80,7 +81,7 @@ export async function POST(request: Request) {
   try {
     passwordMatches = await bcrypt.compare(
       password,
-      process.env.ADMIN_PASSWORD_HASH!,
+      getAdminPasswordHash(),
     );
   } catch (error) {
     console.error("Could not verify admin password hash:", error);

@@ -12,7 +12,7 @@ export const PRODUCTS_UPDATED_EVENT = "sarita-products-updated";
 const validMaterials: ProductMaterial[] = [
   "Xuping",
   "Magold",
-  "Folleado",
+  "Folheado",
   "Acero",
   "Titanio",
   "Artesanal",
@@ -112,12 +112,20 @@ export function readProducts(): Product[] {
     }
 
     const product = value as Record<string, unknown>;
-    const category =
+    const storedCategory =
       typeof product.category === "string"
         ? (legacyCategoryMap[product.category] ?? product.category)
         : product.category;
+    const category =
+      storedCategory === "Titanio" ? "Piercings" : storedCategory;
+    const material =
+      product.material === "Folleado" || product.material === "Foliado"
+        ? "Folheado"
+        : storedCategory === "Titanio"
+          ? "Titanio"
+          : product.material;
 
-    return { ...product, category };
+    return { ...product, category, material };
   });
 
   if (!migratedProducts.every(isProduct)) {

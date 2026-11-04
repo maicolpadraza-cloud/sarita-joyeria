@@ -67,11 +67,14 @@ try {
 
   const schemaPath = path.resolve("database/schema.sql");
   const categoriesPath = path.resolve("database/seed-categories.sql");
+  const materialRulesPath = path.resolve("database/seed-material-rules.sql");
   const schemaSql = await readFile(schemaPath, "utf8");
   const categoriesSql = await readFile(categoriesPath, "utf8");
+  const materialRulesSql = await readFile(materialRulesPath, "utf8");
 
   await pool.query(schemaSql);
   await pool.query(categoriesSql);
+  await pool.query(materialRulesSql);
   console.log("Schema applied and catalog categories ensured.");
 } catch (error) {
   console.error(

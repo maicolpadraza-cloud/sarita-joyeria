@@ -4,6 +4,7 @@ import {
   type ProductCategory,
   type ProductInput,
   type ProductMaterial,
+  isProductMaterialAllowed,
 } from "@/lib/products";
 
 export class ProductValidationError extends Error {
@@ -22,7 +23,6 @@ const productCategories = [
   "Anillos",
   "Pulseras",
   "Piercings",
-  "Titanio",
   "Conjuntos",
   "Relojes",
   "Carteras",
@@ -34,7 +34,7 @@ const productCategories = [
 const productMaterials = [
   "Xuping",
   "Magold",
-  "Folleado",
+  "Folheado",
   "Acero",
   "Titanio",
   "Artesanal",
@@ -111,7 +111,7 @@ export function isAllowedProductImageUrl(value: string): boolean {
   return imageUrlSchema.safeParse(value).success;
 }
 
-export const productInputSchema = z
+const productFieldsSchema = z
   .object({
     id: z.string().trim().min(1).max(64).optional(),
     name: z.string().trim().min(1).max(150),
@@ -133,7 +133,49 @@ export const productInputSchema = z
   })
   .strict();
 
-const productRecordSchema = productInputSchema.extend({
+export const productInputSchema = productFieldsSchema.superRefine(
+  (product, context) => {
+    if (
+      (product.subcategory !== undefined && product.category !== "Dijes") ||
+      (product.accessoryType !== undefined && product.category !== "Varones")
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "El material no está permitido para esta categoría o subcategoría.",
+        path: ["material"],
+      });
+      return;
+    }
+
+    if (product.category === "Varones" && !product.accessoryType) {
+      context.addIssue({
+        code: "custom",
+        message: "El material no está permitido para esta categoría o subcategoría.",
+        path: ["accessoryType"],
+      });
+      return;
+    }
+
+    if (
+      !isProductMaterialAllowed(
+        product.category,
+        product.material,
+        product.subcategory,
+        product.accessoryType,
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "El material no está permitido para esta categoría o subcategoría.",
+        path: ["material"],
+      });
+    }
+  },
+);
+
+const productRecordSchema = productFieldsSchema.extend({
   id: z.string().trim().min(1).max(64),
   code: z.string().regex(/^SJ-\d{4,}$/),
 }).strict();

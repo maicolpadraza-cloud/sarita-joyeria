@@ -23,7 +23,9 @@ import {
 import ProductImage from "@/components/ProductImage";
 import {
   categories,
-  categoryMaterialOptions,
+  getAllowedProductMaterials,
+  getAvailableProductMaterials,
+  isProductMaterialAllowed,
   materialLabels,
   type ClosureType,
   type AdminProduct,
@@ -59,7 +61,9 @@ const masculineAccessoryTypes: MasculineAccessoryType[] = [
   "Anillos",
   "Billeteras",
 ];
-type ProductDraft = Omit<AdminProduct, "id" | "code">;
+type ProductDraft = Omit<AdminProduct, "id" | "code" | "material"> & {
+  material: ProductMaterial | "";
+};
 
 interface ImageKitStorageUsage {
   usedBytes: number;
@@ -316,10 +320,16 @@ export default function AdminPage() {
     );
   }
 
-  const availableMaterials =
-    draft.category === "Dijes" && draft.subcategory === "Iniciales"
-      ? (["Xuping", "Acero"] satisfies ProductMaterial[])
-      : categoryMaterialOptions[draft.category];
+  const availableMaterials = getAllowedProductMaterials(
+    draft.category,
+    draft.subcategory,
+    draft.accessoryType,
+  );
+  const currentMaterialIsInvalid =
+    draft.material !== "" && !availableMaterials.includes(draft.material);
+  const currentMaterialLabel = draft.material
+    ? materialLabels[draft.material]
+    : "";
   const searchTerms = searchQuery
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -339,23 +349,33 @@ export default function AdminPage() {
   });
 
   function updateCategory(category: ProductCategory) {
-    const nextMaterials = categoryMaterialOptions[category];
-    setDraft((current) => ({
-      ...current,
-      category,
-      subcategory: category === "Dijes" ? current.subcategory : undefined,
-      accessoryType:
+    setDraft((current) => {
+      const subcategory =
+        category === "Dijes" ? current.subcategory : undefined;
+      const accessoryType =
         category === "Varones"
           ? current.accessoryType ?? "Cadenas"
-          : undefined,
-      material: nextMaterials.includes(current.material)
-        ? current.material
-        : nextMaterials[0],
-      closureType:
-        category === "Aritos" || category === "Argollas"
-          ? current.closureType
-          : undefined,
-    }));
+          : undefined;
+      const nextMaterials = getAvailableProductMaterials(
+        category,
+        subcategory,
+        accessoryType,
+      );
+      return {
+        ...current,
+        category,
+        subcategory,
+        accessoryType,
+        material:
+          current.material !== "" && nextMaterials.includes(current.material)
+          ? current.material
+          : "",
+        closureType:
+          category === "Aritos" || category === "Argollas"
+            ? current.closureType
+            : undefined,
+      };
+    });
   }
 
   function resetForm() {
@@ -511,6 +531,12 @@ export default function AdminPage() {
     setError("");
     setNotice("");
 
+    const material = draft.material;
+    if (!material || !availableMaterials.includes(material)) {
+      setError("Selecciona un material permitido para la categoría elegida.");
+      return;
+    }
+
     if (!draft.image) {
       setError("Agrega una imagen para el producto.");
       return;
@@ -518,6 +544,7 @@ export default function AdminPage() {
 
     const product: AdminProduct = {
       ...draft,
+      material,
       id: editingId ?? crypto.randomUUID(),
       ...(draft.category === "Dijes" && draft.subcategory === "Iniciales"
         ? { subcategory: draft.subcategory }
@@ -695,8 +722,8 @@ export default function AdminPage() {
           </p>
         )}
 
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <section className="h-fit rounded-2xl border border-darkBrown/10 bg-white p-5 shadow-sm sm:p-7">
+        <div className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <section className="h-fit min-w-0 rounded-2xl border border-darkBrown/10 bg-white p-5 shadow-sm sm:p-7">
             <div className="mb-6 flex items-center gap-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-rose/55 text-warmBrown">
                 {editingId ? <Pencil size={18} /> : <PackagePlus size={18} />}
@@ -761,7 +788,8 @@ export default function AdminPage() {
                   Material
                   <select
                     className={inputClassName}
-                    value={draft.material}
+                    value={currentMaterialIsInvalid ? "" : draft.material}
+                    required
                     onChange={(event) => {
                       const material = availableMaterials.find(
                         (item) => item === event.target.value,
@@ -769,6 +797,11 @@ export default function AdminPage() {
                       if (material) setDraft({ ...draft, material });
                     }}
                   >
+                    <option value="" disabled>
+                      {availableMaterials.length > 0
+                        ? "Selecciona un material"
+                        : "No hay materiales permitidos"}
+                    </option>
                     {availableMaterials.map((material) => (
                       <option key={material} value={material}>
                         {materialLabels[material]}
@@ -777,6 +810,18 @@ export default function AdminPage() {
                   </select>
                 </label>
               </div>
+              {(currentMaterialIsInvalid || (!draft.material && editingId)) && (
+                <p
+                  className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+                  role="alert"
+                >
+                  {availableMaterials.length === 0
+                      ? "Esta categoría no tiene materiales permitidos. Cambia la categoría para poder guardar el producto."
+                      : currentMaterialIsInvalid
+                      ? `El material actual (${currentMaterialLabel}) ya no está permitido para esta categoría o subcategoría. Selecciona uno de los materiales disponibles antes de guardar.`
+                      : "Selecciona un material permitido para continuar."}
+                </p>
+              )}
 
               {draft.category === "Dijes" && (
                 <label className="block text-xs font-medium">
@@ -789,15 +834,19 @@ export default function AdminPage() {
                         event.target.value === "Iniciales"
                           ? "Iniciales"
                           : undefined;
+                      const nextMaterials = getAllowedProductMaterials(
+                        draft.category,
+                        subcategory,
+                        draft.accessoryType,
+                      );
                       setDraft({
                         ...draft,
                         subcategory,
                         material:
-                          subcategory === "Iniciales" &&
-                          draft.material !== "Xuping" &&
-                          draft.material !== "Acero"
-                            ? "Xuping"
-                            : draft.material,
+                          draft.material !== "" &&
+                          nextMaterials.includes(draft.material)
+                          ? draft.material
+                          : "",
                       });
                     }}
                   >
@@ -817,7 +866,22 @@ export default function AdminPage() {
                       const accessoryType = masculineAccessoryTypes.find(
                         (item) => item === event.target.value,
                       );
-                      if (accessoryType) setDraft({ ...draft, accessoryType });
+                      if (accessoryType) {
+                        const nextMaterials = getAllowedProductMaterials(
+                          draft.category,
+                          draft.subcategory,
+                          accessoryType,
+                        );
+                        setDraft({
+                          ...draft,
+                          accessoryType,
+                          material:
+                            draft.material !== "" &&
+                            nextMaterials.includes(draft.material)
+                            ? draft.material
+                            : "",
+                        });
+                      }
                     }}
                     required
                   >
@@ -1016,7 +1080,7 @@ export default function AdminPage() {
             </form>
           </section>
 
-          <section className="rounded-2xl border border-darkBrown/10 bg-white p-5 shadow-sm sm:p-7">
+          <section className="min-w-0 rounded-2xl border border-darkBrown/10 bg-white p-5 shadow-sm sm:p-7">
             <div className="mb-6 flex items-end justify-between gap-3">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-warmBrown">
@@ -1035,11 +1099,10 @@ export default function AdminPage() {
                     </p>
                   )}
               </div>
-              <span className="text-xs text-darkBrown/55">
-                {searchTerms.length > 0
-                  ? `${filteredItems.length} de ${items.length}`
-                  : items.length}{" "}
-                {items.length === 1 ? "producto" : "productos"}
+              <span className="text-xs text-darkBrown/55" aria-live="polite">
+                {isReady
+                  ? `${searchTerms.length > 0 ? `${filteredItems.length} de ${items.length}` : items.length} ${items.length === 1 ? "producto" : "productos"}`
+                  : "Cargando productos…"}
               </span>
             </div>
 
@@ -1099,6 +1162,19 @@ export default function AdminPage() {
                       <p className="mt-1 truncate text-[10px] text-warmBrown">
                         {product.category} · {materialLabels[product.material]}
                       </p>
+                      {!isProductMaterialAllowed(
+                        product.category,
+                        product.material,
+                        product.subcategory,
+                        product.accessoryType,
+                      ) && (
+                        <p
+                          className="mt-1 text-[10px] font-semibold text-amber-800"
+                          role="status"
+                        >
+                          Material fuera de regla · corregir
+                        </p>
+                      )}
                       <p className="mt-1 text-xs">
                         Bs. {product.price.toFixed(2)} ·{" "}
                         {product.inStock ? "En stock" : "Agotado"}
