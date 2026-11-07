@@ -34,10 +34,9 @@ const bolivianCurrency = new Intl.NumberFormat("es-BO", {
 });
 
 const masculineAccessoryFilters: {
-  label: "Todas" | MasculineAccessoryType;
+  label: MasculineAccessoryType;
   value: MasculineAccessoryType | null;
 }[] = [
-  { label: "Todas", value: null },
   { label: "Cadenas", value: "Cadenas" },
   { label: "Pulseras", value: "Pulseras" },
   { label: "Anillos", value: "Anillos" },
@@ -334,9 +333,12 @@ export default function HomePage({ initialFilters }: HomePageProps) {
                 onClick={() => {
                   const nextSubcategory =
                     category === "Dijes" ? selectedDijeSubcategory : null;
+                  const nextAccessoryType =
+                    category === "Varones" ? "Cadenas" : null;
                   const nextMaterials = getAvailableProductMaterials(
                     category,
                     nextSubcategory ?? undefined,
+                    nextAccessoryType ?? undefined,
                   );
                   if (
                     selectedMaterial !== null &&
@@ -348,7 +350,7 @@ export default function HomePage({ initialFilters }: HomePageProps) {
                     setSelectedDijeSubcategory(null);
                   }
                   setSelectedCategory(category);
-                  setSelectedAccessoryType(null);
+                  setSelectedAccessoryType(nextAccessoryType);
                 }}
                 className={`border-b-2 pb-3 text-[13px] font-medium tracking-[0.015em] transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A7794F] motion-reduce:transition-none max-[639px]:inline-flex max-[639px]:min-h-11 max-[639px]:shrink-0 max-[639px]:items-center max-[639px]:px-1 ${
                   selectedCategory === category
@@ -529,7 +531,7 @@ export default function HomePage({ initialFilters }: HomePageProps) {
                       src={
                         isAllowedProductImageUrl(product.image)
                           ? product.image
-                          : "/logo-luna.png"
+                          : "/product-placeholder.svg"
                       }
                       aria-label={product.name}
                       alt={product.name}

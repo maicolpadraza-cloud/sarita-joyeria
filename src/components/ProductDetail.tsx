@@ -214,7 +214,7 @@ export default function ProductDetail({
             src={
               isAllowedProductImageUrl(product.image)
                 ? product.image
-                : "/logo-luna.png"
+                : "/product-placeholder.svg"
             }
             alt={product.name}
             fill

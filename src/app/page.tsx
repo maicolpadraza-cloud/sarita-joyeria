@@ -53,7 +53,8 @@ async function HomePageContent({
     dijeSubcategory:
       firstValue(query.dije) === "Iniciales" ? "Iniciales" : null,
     accessoryType:
-      accessoryTypes.find((type) => type === requestedAccessory) ?? null,
+      accessoryTypes.find((type) => type === requestedAccessory) ??
+      (requestedCategory === "Varones" ? "Cadenas" : null),
   };
 
   return <HomePage initialFilters={initialFilters} />;

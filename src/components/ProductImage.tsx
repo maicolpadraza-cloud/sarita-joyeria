@@ -29,7 +29,7 @@ export default function ProductImage({
       alt={imageProps.alt ?? ""}
       src={
         hasError
-          ? "/logo-luna.png"
+          ? "/product-placeholder.svg"
           : isImageKit
             ? getImageKitOptimizedUrl(src, transformWidth)
             : src

@@ -1,3 +1,5 @@
+const defaultSiteUrl = "https://sarita-joyeria.vercel.app";
+
 export function getSiteUrl(): URL | undefined {
   const configuredUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
   if (configuredUrl) {
@@ -20,9 +22,5 @@ export function getSiteUrl(): URL | undefined {
     return new URL(`https://${vercelUrl}`);
   }
 
-  if (typeof window !== "undefined") {
-    return new URL(window.location.origin);
-  }
-
-  return undefined;
+  return new URL(defaultSiteUrl);
 }

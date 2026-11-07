@@ -121,7 +121,7 @@ export const productMaterialRules: Record<ProductCategory, ProductMaterialRule> 
         Cadenas: ["Acero"],
         Pulseras: ["Acero"],
         Anillos: ["Acero"],
-        Billeteras: ["Xuping", "Magold", "Folheado", "Cuero sintético"],
+        Billeteras: ["Cuero sintético"],
       },
     },
     Tobilleras: { materials: ["Xuping", "Acero"] },

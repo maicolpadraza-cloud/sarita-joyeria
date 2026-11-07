@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { io } from "next/cache";
 import ProductDetail from "@/components/ProductDetail";
 import { categories, materialFilters } from "@/lib/products";
 import type { MasculineAccessoryType } from "@/lib/products";
@@ -21,6 +22,7 @@ export async function generateMetadata({
   params,
 }: ProductPageProps): Promise<Metadata> {
   const { id } = await params;
+  await io();
   try {
     const product = await getProductById(id);
     if (!product) {
@@ -41,7 +43,7 @@ export async function generateMetadata({
         images: [
           isAllowedProductImageUrl(product.image)
             ? product.image
-            : "/logo-luna.png",
+          : "/product-placeholder.svg",
         ],
       },
       twitter: {
@@ -51,7 +53,7 @@ export async function generateMetadata({
         images: [
           isAllowedProductImageUrl(product.image)
             ? product.image
-            : "/logo-luna.png",
+            : "/product-placeholder.svg",
         ],
       },
       ...(getSiteUrl() ? { metadataBase: getSiteUrl() } : {}),

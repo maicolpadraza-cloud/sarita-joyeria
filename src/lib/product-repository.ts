@@ -46,7 +46,7 @@ function mapProductRow(
       price: Number(row.price),
       image: isAllowedProductImageUrl(row.image)
         ? row.image
-        : "/logo-luna.png",
+        : "/product-placeholder.svg",
       ...(includeImageKitFileId && row.imageKitFileId
         ? { imageKitFileId: row.imageKitFileId }
         : {}),

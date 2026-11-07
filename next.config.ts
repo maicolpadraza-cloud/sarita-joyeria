@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const imageKitEndpoint = new URL(
   process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT ??
-    "https://ik.imagekit.io/sxvg5dlmq",
+    "https://ik.imagekit.io/saritajoyeria",
 );
 
 const nextConfig: NextConfig = {

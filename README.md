@@ -13,6 +13,10 @@ npm run dev
 
 Abre [http://localhost:3000](http://localhost:3000).
 
+`npm run build` usa el builder webpack de Next.js 16; en este proyecto evita un
+fallo de resolución de `next/font/google` observado con Turbopack durante el
+build de producción.
+
 ## Administración de productos
 
 Visita [http://localhost:3000/admin](http://localhost:3000/admin) para
@@ -76,7 +80,25 @@ npm run seed
 El comando exige `DB_SSL=true` y usa TLS 1.2 como mínimo con verificación
 del certificado. La API solo acepta imágenes como ruta local (por ejemplo
 `/images/joya.jpg`), URL HTTPS de `images.unsplash.com` o de
-`ik.imagekit.io/sxvg5dlmq`.
+`ik.imagekit.io/saritajoyeria`.
+
+## Reglas del catálogo y pedidos
+
+Este sitio es un catálogo, no una tienda con carrito ni pasarela de pago. Cada
+producto recibe un código `SJ-xxxx` generado por el servidor, que aparece en el
+detalle y se incluye en el mensaje al solicitarlo por WhatsApp.
+
+Los materiales se mantienen en una única fuente compartida por el catálogo, el
+panel y la API. Piercings permite Folheado, Titanio y Acero Inoxidable; Relojes
+y Varones/Cadenas, Pulseras y Anillos permiten solo Acero Inoxidable.
+Varones/Billeteras permite únicamente Cuero sintético. Titanio es un material
+exclusivo de Piercings, no una categoría. Los pedidos se envían por WhatsApp;
+no hay carrito ni checkout.
+
+La base de datos es TiDB Cloud compatible con MySQL; el esquema, semillas y
+migraciones están en `database/` y `scripts/`. Para publicar en Vercel, sigue
+[`DEPLOY.md`](DEPLOY.md), configura las variables listadas allí y usa
+`NEXT_PUBLIC_SITE_URL` para los enlaces públicos del catálogo y WhatsApp.
 
 ## Fotos de productos con ImageKit
 
@@ -88,7 +110,9 @@ solo se usa en el servidor; configura `NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT`,
 `NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY` e `IMAGEKIT_PRIVATE_KEY` en `.env.local` y
 en las variables de entorno de Vercel. No guardes las imágenes en MySQL: allí
 solo se conservan la URL y el identificador de archivo necesario para poder
-borrar de ImageKit al reemplazar o eliminar un producto.
+borrar de ImageKit al reemplazar o eliminar un producto. La foto es opcional;
+si se omite, el catálogo usa `public/product-placeholder.svg` y no hace falta
+alterar el esquema de base de datos.
 
 Para instalaciones existentes, agrega la columna antes de desplegar:
 

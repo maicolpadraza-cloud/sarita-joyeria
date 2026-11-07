@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS accessory_material_rules (
   DEFAULT CHARACTER SET=utf8mb4
   COLLATE=utf8mb4_unicode_ci;
 
+-- Seed accessory/material combinations from database/seed-material-rules.sql.
 CREATE TABLE IF NOT EXISTS products (
   id VARCHAR(64) NOT NULL,
   code VARCHAR(20) NOT NULL,

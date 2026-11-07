@@ -78,9 +78,6 @@ INNER JOIN (
   SELECT 'Varones' AS category_name, 'Cadenas' AS accessory_type, 'Acero' AS material
   UNION ALL SELECT 'Varones', 'Pulseras', 'Acero'
   UNION ALL SELECT 'Varones', 'Anillos', 'Acero'
-  UNION ALL SELECT 'Varones', 'Billeteras', 'Xuping'
-  UNION ALL SELECT 'Varones', 'Billeteras', 'Magold'
-  UNION ALL SELECT 'Varones', 'Billeteras', 'Folheado'
   UNION ALL SELECT 'Varones', 'Billeteras', 'Cuero sintético'
 ) AS r ON r.category_name = c.name
 ON DUPLICATE KEY UPDATE legacy_exception = 0;

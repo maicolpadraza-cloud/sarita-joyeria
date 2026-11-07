@@ -47,7 +47,7 @@ const maxProductPrice = 99_999_999.99;
 const imageKitEndpointPath = (() => {
   const endpoint =
     process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT ??
-    "https://ik.imagekit.io/sxvg5dlmq";
+    "https://ik.imagekit.io/saritajoyeria";
   try {
     const url = new URL(endpoint);
     if (
@@ -60,9 +60,9 @@ const imageKitEndpointPath = (() => {
       return url.pathname.replace(/\/+$/, "");
     }
   } catch {
-    return "/sxvg5dlmq";
+    return "/saritajoyeria";
   }
-  return "/sxvg5dlmq";
+  return "/saritajoyeria";
 })();
 
 const imageUrlSchema = z

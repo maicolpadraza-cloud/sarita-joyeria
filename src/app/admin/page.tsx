@@ -361,15 +361,18 @@ export default function AdminPage() {
         subcategory,
         accessoryType,
       );
+      const currentMaterialIsAllowed =
+        current.material !== "" && nextMaterials.includes(current.material);
       return {
         ...current,
         category,
         subcategory,
         accessoryType,
-        material:
-          current.material !== "" && nextMaterials.includes(current.material)
+        material: currentMaterialIsAllowed
           ? current.material
-          : "",
+          : nextMaterials.length === 1
+            ? nextMaterials[0]
+            : "",
         closureType:
           category === "Aritos" || category === "Argollas"
             ? current.closureType
@@ -537,13 +540,9 @@ export default function AdminPage() {
       return;
     }
 
-    if (!draft.image) {
-      setError("Agrega una imagen para el producto.");
-      return;
-    }
-
     const product: AdminProduct = {
       ...draft,
+      image: draft.image || "/product-placeholder.svg",
       material,
       id: editingId ?? crypto.randomUUID(),
       ...(draft.category === "Dijes" && draft.subcategory === "Iniciales"
@@ -878,8 +877,10 @@ export default function AdminPage() {
                           material:
                             draft.material !== "" &&
                             nextMaterials.includes(draft.material)
-                            ? draft.material
-                            : "",
+                              ? draft.material
+                              : nextMaterials.length === 1
+                                ? nextMaterials[0]
+                                : "",
                         });
                       }
                     }}
@@ -1024,23 +1025,32 @@ export default function AdminPage() {
                   }}
                   maxLength={2048}
                   placeholder="https://images.unsplash.com/… o /images/joya.jpg"
-                  required
                 />
                 <p className="mt-2 text-xs leading-5 text-darkBrown/55">
                   Se aceptan rutas del sitio, images.unsplash.com o tu endpoint
-                  de ImageKit.
+                  de ImageKit. Si no agregas una foto, se usará la imagen de
+                  relleno.
                 </p>
-                {(imagePreviewUrl || isAllowedProductImageUrl(draft.image)) && (
+                {(imagePreviewUrl ||
+                  isAllowedProductImageUrl(draft.image) ||
+                  !draft.image) && (
                   <div className="mt-3 flex items-center gap-3">
                     <ProductImage
-                      src={imagePreviewUrl || draft.image}
+                      src={
+                        imagePreviewUrl ||
+                        (isAllowedProductImageUrl(draft.image)
+                          ? draft.image
+                          : "/product-placeholder.svg")
+                      }
                       alt={`Vista previa: ${draft.name || "producto"}`}
                       width={64}
                       height={80}
                       className="h-20 w-16 rounded-lg object-cover"
                     />
                     <span className="text-xs text-darkBrown/60">
-                      Vista previa seleccionada
+                      {draft.image || imagePreviewUrl
+                        ? "Vista previa seleccionada"
+                        : "Se usará la imagen de relleno"}
                     </span>
                   </div>
                 )}
@@ -1145,7 +1155,7 @@ export default function AdminPage() {
                       src={
                         isAllowedProductImageUrl(product.image)
                           ? product.image
-                          : "/logo-luna.png"
+                          : "/product-placeholder.svg"
                       }
                       alt={product.name}
                       width={56}

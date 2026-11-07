@@ -14,16 +14,16 @@ const heicExtensions = /\.(heic|heif)$/i;
 function getImageKitEndpoint(): URL {
   const endpoint =
     process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT ??
-    "https://ik.imagekit.io/sxvg5dlmq";
+    "https://ik.imagekit.io/saritajoyeria";
   try {
     const url = new URL(endpoint);
     if (url.protocol === "https:" && url.hostname === "ik.imagekit.io") {
       return url;
     }
   } catch {
-    return new URL("https://ik.imagekit.io/sxvg5dlmq");
+    return new URL("https://ik.imagekit.io/saritajoyeria");
   }
-  return new URL("https://ik.imagekit.io/sxvg5dlmq");
+  return new URL("https://ik.imagekit.io/saritajoyeria");
 }
 
 function isHeicFile(file: File): boolean {

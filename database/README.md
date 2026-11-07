@@ -83,10 +83,11 @@ Las reglas efectivas son:
 | Piercings | Folheado, Titanio, Acero Inoxidable |
 | Relojes | Acero Inoxidable |
 | Varones / Cadenas, Pulseras y Anillos | Acero Inoxidable |
-| Varones / Billeteras | Xuping, Magold, Folheado, Cuero sintético |
+| Varones / Billeteras | Cuero sintético |
 
-En Varones/Billeteras se excluyen `Artesanal`, `Acero Inoxidable` y `Titanio`.
-El catálogo no ofrece Titanio como filtro general.
+En Varones/Billeteras solo se permite `Cuero sintético`; se excluyen `Artesanal`,
+`Acero Inoxidable`, `Titanio`, `Folheado`, `Magold` y `Xuping`. El catálogo no
+ofrece Titanio como filtro general ni muestra un filtro "Todas" para Varones.
 
 Las combinaciones válidas se guardan en `category_material_rules`,
 `subcategory_material_rules` y `accessory_material_rules`; claves foráneas
@@ -118,6 +119,18 @@ la API rechaza nuevas escrituras inválidas. Después de corregir esos productos
 desde el panel, vuelve a ejecutar la migración para retirar excepciones que ya
 no se necesitan.
 
+Para cambiar la regla de Varones/Billeteras en una base existente sin modificar
+los productos guardados, ejecuta la migración idempotente con una cuenta DDL:
+
+```powershell
+node --env-file=.env.admin.local scripts/migrate-billetera-material.mjs
+```
+
+La migración deja `Cuero sintético` como única regla activa. Si ya hay
+billeteras de varones con otro material, conserva esas filas de regla como
+excepciones heredadas para no modificar productos ni romper sus claves
+foráneas; la validación de la API rechaza nuevas escrituras con esos materiales.
+
 Para instalaciones futuras, `apply-schema` y los seeds ya usan las categorías
 y materiales canónicos. `migrate-material-rules.mjs` solo es necesario para
 sincronizar reglas en una base existente que no tenga las tablas de reglas.
@@ -146,7 +159,7 @@ El script CLI de seed necesita además leer `categories` e insertar/actualizar
 `products`.
 
 Las imágenes existentes que no sean rutas del sitio, HTTPS de
-`images.unsplash.com` o URLs HTTPS de `ik.imagekit.io/sxvg5dlmq` se sirven como
+`images.unsplash.com` o URLs HTTPS de `ik.imagekit.io/saritajoyeria` se sirven como
 `/logo-luna.png` hasta que se reemplace su URL desde el panel.
 
 Para una base ya creada antes de agregar soporte de ImageKit, aplica una sola

@@ -163,6 +163,25 @@ El proyecto ya genera metadatos Open Graph para el sitio y cada producto, tiene
 favicon y crea un sitemap dinámico a partir de TiDB. `robots.txt` bloquea
 `/admin` y `/api`.
 
+El catálogo no usa carrito ni pasarela de pago: cada artículo tiene un código
+`SJ-xxxx` y se solicita por WhatsApp. Las reglas actuales de materiales son:
+Piercings (Folheado, Titanio, Acero Inoxidable), Relojes y Varones/Cadenas,
+Pulseras y Anillos (solo Acero Inoxidable), y Varones/Billeteras (solo Cuero
+sintético). Titanio es un material disponible únicamente en Piercings.
+
 Antes de habilitar cargas en una base existente, aplica la migración indicada
 en `README.md` para agregar `products.imagekit_file_id`. Las fotos se guardan
-en ImageKit, nunca como datos binarios en MySQL.
+en ImageKit, nunca como datos binarios en MySQL. La foto es opcional; si no se
+sube una, se guarda la ruta de la imagen de relleno, por lo que no se requiere
+un `ALTER TABLE` adicional.
+
+Para una base ya existente, aplica también la migración de reglas que deja
+Varones/Billeteras con solo `Cuero sintético`:
+
+```powershell
+node --env-file=.env.admin.local scripts/migrate-billetera-material.mjs
+```
+
+La migración conserva intactos los productos actuales. Las billeteras de
+varones con materiales anteriores permanecen visibles y el panel advierte que
+hay que corregirlas; la API rechaza nuevas escrituras con esas combinaciones.

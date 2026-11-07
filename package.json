@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "hash-password": "node scripts/hash-password.mjs",
     "apply-schema": "node --env-file=.env.local scripts/apply-schema.mjs",

@@ -57,12 +57,7 @@ const materialsByCategory = {
   Varones: ["Acero", "Xuping", "Magold", "Folheado", "Cuero sintético"],
   Tobilleras: ["Xuping", "Acero"],
 };
-const masculineWalletMaterials = [
-  "Xuping",
-  "Magold",
-  "Folheado",
-  "Cuero sintético",
-];
+const masculineWalletMaterials = ["Cuero sintético"];
 const categories = Object.keys(materialsByCategory);
 
 function ruleKey(rule, columns) {
