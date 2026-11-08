@@ -13,9 +13,9 @@ npm run dev
 
 Abre [http://localhost:3000](http://localhost:3000).
 
-`npm run build` usa el builder webpack de Next.js 16; en este proyecto evita un
-fallo de resolución de `next/font/google` observado con Turbopack durante el
-build de producción.
+`npm run build` usa el builder webpack de Next.js 16. Las fuentes tipográficas
+están versionadas en `src/app/fonts`, así que no se descargan durante la
+compilación.
 
 ## Administración de productos
 

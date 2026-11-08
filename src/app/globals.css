@@ -3,6 +3,10 @@
 :root {
   --background: #fdf8f5;
   --foreground: #2c2623;
+  --font-playfair-display: "Playfair Display";
+  --font-montserrat: "Montserrat";
+  --font-geist-sans: "Geist";
+  --font-geist-mono: "Geist Mono";
 }
 
 @theme inline {

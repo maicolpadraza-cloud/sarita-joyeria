@@ -2,7 +2,6 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
-import { Montserrat, Playfair_Display } from "next/font/google";
 import { useEffect, useState } from "react";
 import SplashScreen from "@/components/SplashScreen";
 import ProductImage from "@/components/ProductImage";
@@ -23,9 +22,6 @@ import {
 } from "@/lib/product-storage";
 import { fetchProducts } from "@/lib/products-api";
 import { createGeneralInquiryUrl } from "@/lib/whatsapp";
-
-const playfairDisplay = Playfair_Display({ subsets: ["latin"] });
-const montserrat = Montserrat({ subsets: ["latin"] });
 
 const bolivianCurrency = new Intl.NumberFormat("es-BO", {
   style: "currency",
@@ -220,7 +216,7 @@ export default function HomePage({ initialFilters }: HomePageProps) {
               />
               <span className="flex flex-col items-center">
                 <span
-                  className={`${playfairDisplay.className} block bg-clip-text text-[22px] leading-tight text-transparent`}
+                  className="font-editorial block bg-clip-text text-[22px] leading-tight text-transparent"
                   style={{
                     backgroundImage:
                       "linear-gradient(90deg, #A7794F 0%, #B88486 50%, #A7794F 100%)",
@@ -229,7 +225,7 @@ export default function HomePage({ initialFilters }: HomePageProps) {
                   SARITA
                 </span>
                 <span
-                  className={`${montserrat.className} mt-1 block text-[8px] tracking-[0.2em] text-[#704F43]`}
+                  className="font-boutique mt-1 block text-[8px] tracking-[0.2em] text-[#704F43]"
                 >
                   JOYERÍA Y ACCESORIOS
                 </span>
