@@ -45,15 +45,15 @@ export function createProductOrderMessage(
 ): string {
   return [
     isAvailabilityInquiry
-      ? "Hola, SARITA. 💖 Quisiera consultar la disponibilidad de esta joya:"
-      : "Hola, SARITA. 💖 Me interesa esta joya:",
+      ? "Hola, SARITA. \u{1F496} Quisiera consultar la disponibilidad de esta joya:"
+      : "Hola, SARITA. \u{1F496} Me interesa esta joya:",
     "",
-    `✨ Producto: ${product.name}`,
-    `🔢 Código: ${product.code ?? "No disponible"}`,
-    `💎 Categoría: ${product.category}`,
-    `🏷️ Material: ${materialLabels[product.material]}`,
-    `💰 Precio: ${bolivianCurrency.format(product.price)}`,
-    `🔗 Enlace: ${productUrl}`,
+    `\u{2728} Producto: ${product.name}`,
+    `\u{1F516} Código: ${product.code ?? "No disponible"}`,
+    `\u{1F48E} Categoría: ${product.category}`,
+    `\u{1F516} Material: ${materialLabels[product.material]}`,
+    `\u{1F4B0} Precio: ${bolivianCurrency.format(product.price)}`,
+    `\u{1F517} Enlace: ${productUrl}`,
     "",
     isAvailabilityInquiry
       ? "¿Podrían confirmarme si está disponible?"
@@ -75,6 +75,6 @@ export function createProductOrderUrl(
 
 export function createGeneralInquiryUrl(): string | null {
   return createWhatsAppUrl(
-    "Hola, SARITA. 💖 Quisiera recibir más información sobre sus joyas y accesorios.",
+    "Hola, SARITA. \u{1F496} Quisiera recibir más información sobre sus joyas y accesorios.",
   );
 }
